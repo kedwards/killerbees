@@ -1,0 +1,19 @@
+---
+- name: Create a temporary directory
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: tmp
+  register: tmpdir
+
+- name: Copy Publick Key to Other Hosts
+  ansible.builtin.copy:
+    src: /tmp/id_rsa.pub
+    dest: "{{ tmpdir.path }}/id_rsa.pub"
+    mode: 0644
+
+- name: Append Public key in authorized_keys file
+  become_user: docker
+  ansible.posix.authorized_key:
+    user: docker
+    state: present
+    key: "{{ lookup('file', '/tmp/id_rsa.pub') }}"

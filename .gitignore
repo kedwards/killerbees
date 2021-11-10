@@ -1,0 +1,6 @@
+.vagrant
+!**/.gitkeep
+*.log
+worker_token
+**/ansible_collections
+**/DATA

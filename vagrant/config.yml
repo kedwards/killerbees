@@ -1,0 +1,45 @@
+---
+# https://app.vagrantup.com/boxes/search
+use: swarm
+
+plugins:
+  - vai
+
+vb: &vb
+    nodes: 1
+    name_prefix: 'template'
+    box: bento/ubuntu-21.04
+    ram: 512
+    vcpu: 1
+    disks: 2
+    disk_size: '20 GB'
+    disk_type: 'SATA Controller' # 'SCSI'
+    box_check_update: false
+    check_guest_additions: false
+    synced_folder_disabled: false
+    ip_addr: 192.168.2.
+    netmask: 255.255.255.0
+
+swarm:
+  - name: proxy
+    type: vb
+    <<: *vb
+    name_prefix: proxy
+    ip_addr: 192.168.5.
+  - name: managers
+    type: vb
+    <<: *vb
+    name_prefix: manager
+    ip_addr: 192.168.5.1
+  - name: workers
+    type: vb
+    <<: *vb
+    nodes: 2
+    name_prefix: worker
+    ip_addr: 192.168.5.2
+    provisioner:
+      - type: vai
+        path: ../ansible/inventory/
+        filename: vagrant_ansible_inventory
+
+

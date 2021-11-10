@@ -1,0 +1,28 @@
+---
+- name: Check if Swarm has already been Initialized
+  shell: docker node ls
+  register: swarm_status
+  ignore_errors: true
+
+- name: Initialize Docker Swarm - Leader
+  shell: >
+    docker swarm init
+    --advertise-addr={{ hostvars[inventory_hostname]['ansible_eth1']['ipv4']['address'] }}:2377
+  when: swarm_status.rc != 0 and inventory_hostname == groups['swarm_managers'][0]
+  run_once: true
+
+- name: Get the Manager join-token
+  shell: docker swarm join-token --quiet manager
+  when: inventory_hostname == groups['swarm_managers'][0]
+  register: manager_token
+
+- name: Get the worker join-token
+  shell: docker swarm join-token --quiet worker
+  when: inventory_hostname == groups['swarm_managers'][0]
+  register: worker_token
+
+- name: Add Docker node to existing Swarm as manager
+  shell: >
+    docker swarm join --token {{hostvars[groups['swarm_managers'][0]]['manager_token']['stdout']}} {{ groups['swarm_managers'][0] }}:2377
+  when: swarm_status.rc != 0 and inventory_hostname != groups['swarm_managers'][0]
+

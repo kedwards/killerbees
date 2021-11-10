@@ -1,0 +1,16 @@
+---
+- name: Install Packages
+  ansible.builtin.apt:
+    name:
+      - ntp
+      - python3
+      - tcpdump
+      - wget
+      - openssl
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - software-properties-common
+      - python3-pip
+    state: latest
+    update_cache: yes

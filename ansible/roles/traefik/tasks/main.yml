@@ -1,0 +1,34 @@
+---
+- name: Verify stacks directory exists (on first swarm node)
+  ansible.builtin.file:
+    path: "/home/{{ansible_user}}/stacks"
+    state: directory
+  when: inventory_hostname == groups['swarm_managers'][0]
+
+- name: Generate admin password hash
+  # shell: echo $(htpasswd -nb {{ traefik_admin_user }} {{ traefik_admin_password }}) | sed -e s/\\$/\\$\\$/g
+  shell: echo {{ traefik_admin_user }}:$(openssl passwd -crypt {{ traefik_admin_password }}) | sed -e s/\\$/\\$\\$/g
+  register: traefikpassword
+  when: inventory_hostname == groups['swarm_managers'][0]
+
+- name: Create docker-compose stack file (on first swarm node)
+  ansible.builtin.template:
+    src: traefik-stack.j2
+    dest: /home/{{ ansible_user }}/stacks/traefik-stack.yml
+    mode: 0775
+  when: inventory_hostname == groups['swarm_managers'][0]
+
+- name: Install jsondiff, pyyaml Python library
+  ansible.builtin.pip:
+    name:
+      - jsondiff
+      - pyyaml
+  when: inventory_hostname == groups['swarm_managers'][0]
+
+- name: Deploy stack from a compose file (on first swarm node)
+  community.docker.docker_stack:
+    state: present
+    name: traefik
+    compose:
+      - /home/{{ ansible_user }}/stacks/traefik-stack.yml
+  when: inventory_hostname == groups['swarm_managers'][0]

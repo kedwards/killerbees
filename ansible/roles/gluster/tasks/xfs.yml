@@ -1,0 +1,17 @@
+---
+- name: "Create XFS Path {{ gluster_volume_path }}/{{ inventory_hostname }}"
+  ansible.builtin.file:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}"
+    state: directory
+
+- name: "Create a XFS filesystem on {{ gluster_hdd_device }}"
+  community.general.filesystem:
+    fstype: xfs
+    dev: "{{ gluster_hdd_device }}"
+
+- name: "Mount XFS volume {{ gluster_hdd_device }} to {{ gluster_volume_path }}/{{ inventory_hostname }}"
+  ansible.posix.mount:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}"
+    src: "{{ gluster_hdd_device }}"
+    fstype: xfs
+    state: mounted
