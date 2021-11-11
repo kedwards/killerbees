@@ -11,7 +11,7 @@
     update_cache: yes
 
 - name: Enable Gluster service
-  systemd:
+  ansible.builtin.systemd:
     name: glusterd
     enabled: yes
     state: started

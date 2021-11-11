@@ -1,60 +1,52 @@
 ---
-# - name: setup pre-requisites
-#   hosts: all
-#   become: yes
-#   roles:
-#     - create-sudo-user
-#     - install-modules
-#     - configure-hosts-file
-#     - disable-auto-update
+- name: setup pre-requisites
+  hosts: all !admins
+  become: yes
+  roles:
+    - create-sudo-user
+    - install-modules
+    - configure-hosts-file
 
-# - name: setup docker user on the nodes
-#   hosts: admin
-#   become: yes
-#   become_user: docker
-#   roles:
-#     - configure-admin
+- name: setup docker user on the nodes
+  hosts: admins
+  become: yes
+  become_user: docker
+  roles:
+    - configure-admin
 
-# - name: copy public key to nodes
-#   hosts: docker_nodes
-#   become: yes
-#   roles:
-#     - copy-keys
+- name: copy public key to nodes
+  hosts: docker_nodes
+  become: yes
+  roles:
+    - copy-keys
 
-# - name: install docker
-#   hosts: swarm_*
-#   become: yes
-#   roles:
-#     - docker-installation
+- name: install docker
+  hosts: docker_nodes
+  become: yes
+  roles:
+    - docker-installation
 
-# - name: initialize docker swarm
-#   hosts: swarm_managers
-#   become: yes
-#   roles:
-#     - docker-swarm-init
+- name: initialize docker swarm
+  hosts: swarm_*
+  become: yes
+  roles:
+    - docker-swarm-init
 
-# - name: add workers to the swarm
-#   hosts: swarm_workers
-#   become: yes
-#   roles:
-#     - docker-swarm-add-worker
-
-# - name: configure storage with GFS
-#   hosts: gluster_nodes
-#   become: yes
-#   roles:
-#     - gluster
+- name: configure storage with GFS
+  hosts: gluster_nodes
+  become: yes
+  roles:
+    - gluster
 
 # - name: configure traefik service
-#   hosts: swarm_managers
+#   hosts: swarm_managers[0]
 #   become: yes
 #   roles:
 #     - traefik
 #     - portainer
 
-- name: install & configure HA Proxy
-  hosts: proxies
-  become: yes
-  roles:
-    - haproxy
-
+# - name: install & configure HA Proxy
+#   hosts: proxy_nodes[0]
+#   become: yes
+#   roles:
+#     - haproxy

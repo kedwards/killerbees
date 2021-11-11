@@ -22,7 +22,7 @@
     mode: 0775
 
 - name: Restart HAProxy service
-  systemd:
+  ansible.builtin.systemd:
     name: haproxy
     enabled: yes
     state: restarted

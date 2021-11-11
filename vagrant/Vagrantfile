@@ -108,11 +108,19 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
                 srv.vm.provision p['type'], inline: p['script'], privileged: true
 
               when 'vai'
-                config.vm.provision :vai do |ansible|
-                  ansible.inventory_dir = p['path']
+                config.vm.provision :vai do |vai|
+                  vai.inventory_dir = p['path']
                   if not p['filename'].nil?
-                    ansible.inventory_filename = p['filename']
+                    vai.inventory_filename = p['filename']
                   end
+                  vai.groups = {
+                    'proxy_nodes'     => ['proxy01'],
+                    'swarm_managers'  => ['manager01', 'manager02', 'manager03'],
+                    'gluster_nodes'   => ['manager01', 'manager02', 'manager03'],
+                    'swarm_workers'   => ['worker01', 'worker02'],
+                    'docker_nodes'    => ['manager01', 'manager02', 'manager03', 'worker01', 'worker02'],
+                    'docker:children' => ['proxy_nodes', 'docker_nodes', 'swarm_managers', 'swarm_workers']
+                  }
                 end
             end
           end

@@ -1,4 +1,0 @@
----
-- name: Install Packages
-  debug:
-    msg: "{{ hostvars['worker01']['ansible_eth1']['ipv4']['address'] }}"

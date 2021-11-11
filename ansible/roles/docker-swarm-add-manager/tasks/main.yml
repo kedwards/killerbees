@@ -3,9 +3,7 @@
   shell: docker node ls
   register: swarm_status
   ignore_errors: true
-  tags: swarm
 
 - name: Add Managers to the Swarm
-  shell: "docker swarm join --token {{ hostvars['manager01']['manager_token']['stdout'] }} {{ hostvars['manager01']['ansible_eth1']['ipv4']['address'] }}:2377"
+  shell: "docker swarm join --token {{ join_token }} {{ join_address }}"
   when: swarm_status.rc != 0
-  tags: swarm

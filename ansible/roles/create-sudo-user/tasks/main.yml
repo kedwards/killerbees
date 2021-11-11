@@ -1,14 +1,15 @@
 ---
 - name: Create Sudo User
   ansible.builtin.user:
-    name: docker
+    name: "{{ item }}"
     groups: sudo
     shell: /bin/bash
     generate_ssh_key: no
     state: present
+  with_items: "{{ sudo_users }}"
 
-- name: Set Passwordless SSH Access for docker user
-  ansible.builtin.copy:
-    src: sudoers
-    dest: /etc/sudoers.d
+- name: Set passwordless sudo access for docker user
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: /etc/sudoers.d/docker_vagrant
     mode: 0440

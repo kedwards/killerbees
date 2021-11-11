@@ -3,13 +3,9 @@
   ansible.builtin.apt:
     name:
       - ntp
-      - python3
-      - tcpdump
-      - wget
-      - openssl
-      - curl
       - apt-transport-https
-      - ca-certificates
+      - gnupg-agent
+      - apache2-utils
       - software-properties-common
       - python3-pip
     state: latest

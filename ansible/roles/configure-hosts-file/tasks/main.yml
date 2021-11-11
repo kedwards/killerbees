@@ -6,4 +6,4 @@
     line: "{{ hostvars[item]['ansible_eth1']['ipv4']['address'] }} {{item}}"
     state: present
   when: hostvars[item]['ansible_eth1']['ipv4']['address'] is defined
-  with_items: "{{ groups['docker'] }}"
+  with_items: "{{ groups['docker_nodes'] }}"

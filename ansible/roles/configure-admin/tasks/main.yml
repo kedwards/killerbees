@@ -11,12 +11,12 @@
     flat: yes
 
 - name: Copy SSH Configuration
-  ansible.builtin.copy:
-    src: ssh_config
+  ansible.builtin.template:
+    src: ssh_config.j2
     dest: /home/docker/.ssh/config
     mode: 0644
 
-- name: empty known_hosts
+- name: Empty known_hosts
   ansible.builtin.file:
     state: absent
     path: ~/.ssh/known_hosts
@@ -24,6 +24,5 @@
 - name: run ssh-keyscan to add keys to known_hosts
   shell: "ssh-keyscan {{ item }} >> ~/.ssh/known_hosts"
   with_items:
-    - "manager01"
-    - "worker01"
-    - "worker02"
+    - "{{ groups['docker_nodes'] }}"
+    - "{{ groups['proxy_nodes'] }}"

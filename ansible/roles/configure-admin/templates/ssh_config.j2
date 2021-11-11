@@ -1,0 +1,8 @@
+{% for host in groups['docker_nodes'] + groups['proxy_nodes'] %}
+Host {{ host }}
+  Hostname {{ host }}
+  User docker
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+
+{% endfor %}
