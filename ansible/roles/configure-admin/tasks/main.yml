@@ -24,5 +24,6 @@
 - name: run ssh-keyscan to add keys to known_hosts
   shell: "ssh-keyscan {{ item }} >> ~/.ssh/known_hosts"
   with_items:
-    - "{{ groups['docker_nodes'] }}"
+    - "{{ groups['swarm_managers'] }}"
+    - "{{ groups['swarm_workers'] }}"
     - "{{ groups['proxy_nodes'] }}"

@@ -12,7 +12,6 @@
     mode: 0644
 
 - name: Append Public key in authorized_keys file
-  become_user: docker
   ansible.posix.authorized_key:
     user: docker
     state: present

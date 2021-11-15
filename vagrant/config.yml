@@ -1,72 +1,58 @@
 ---
-# https://app.vagrantup.com/boxes/search
 use: swarm
-
 plugins:
   - vai
 
 vb: &vb
-    nodes: 1
-    name_prefix: 'template'
-    box: bento/ubuntu-21.04
-    ram: 512
-    vcpu: 1
-    disks: 1
-    disk_size: '50 GB'
-    disk_type: 'SATA Controller' # 'SCSI'
-    box_check_update: false
-    check_guest_additions: false
-    synced_folder_disabled: false
-    ip_addr: 192.168.2.
-    netmask: 255.255.255.0
-    # provisioner:
-    #   - type: ansible
-    #     ask_become_pass: false
-    #     playbook: ./ansible/playbook.yml
-    #     config_file: ./ansible/ansible.cfg
-    #     inventory_path: ./inventory/local
-    #   - type: shell
-    #     script: |
-    #       echo Installing Docker...
-    #       curl -sSL https://get.docker.com/ | sh
-    #       sudo usermod -aG docker vagrant
-    #   - type: shell
-    #     script: |
-    #       echo Swarm Init...
-    #       sudo docker swarm init --listen-addr #{subnet}#{manager_ip}:2377 --advertise-addr #{subnet}#{manager_ip}:2377
-    #       sudo docker swarm join-token --quiet worker > /vagrant/worker_token
-    #   - shell:
-    #     script: |
-    #       echo Swarm Join...
-    #       sudo docker swarm join --token $(cat /vagrant/worker_token) #{p['subnet']}#{manager_ip}:2377
-
+  type: vb
+  name_prefix: vb
+  nodes: 1
+  box: bento/ubuntu-21.04
+  memory: 1024
+  cpus: 1
+  os_disk: 10 GB
+  disks: 1
+  disk_size: 50 GB
+  disk_type: SATA Controller
+  gui: false
+  check_guest_additions: false
+  box_check_update: false
+  synced_folder_disabled: true
+  ip_addr: 192.168.2.
+  netmask: 255.255.255.0
+  customize:
+    - description: DNS proxy in NAT mode
+      command: --natdnshostresolver1
+      value: 'on'
 
 swarm:
-  - name: proxy
-    type: vb
+  - description: HA Proxy
+    name: proxy
     <<: *vb
     name_prefix: proxy
     ip_addr: 192.168.5.
-  - name: managers
-    type: vb
+  - description: Swarm Managers
+    name: managers
     <<: *vb
     nodes: 3
     name_prefix: manager
     ip_addr: 192.168.5.1
-  - name: workers
-    type: vb
+  - description: Swarm Workers
+    name: workers
     <<: *vb
-    nodes: 2
+    nodes: 3
     name_prefix: worker
     ip_addr: 192.168.5.2
-    provisioner:
-      - type: vai
-        path: ../ansible/inventory/
+  - description: Provisioner
+    name: provisioner
+    type: provisioner
+    provision:
+      - description: Vai provisioner
+        type: vai
+        hosts: all
+        path: ../ansible/inventory
         filename: vagrant_ansible_inventory
         ansible_groups:
-          - name: admins
-            nodes:
-              - localhost ansible_connection=local
           - name: proxy_nodes
             nodes:
               - proxy01
@@ -90,12 +76,11 @@ swarm:
               - proxy_nodes
               - swarm_managers
               - swarm_workers
-          - name: all:vars
-            nodes:
-              ansible_python_interpreter=/usr/bin/python3
-              ansible_connection=ssh
-              ansible_user=vagrant
-              ansible_ssh_private_key_file=~/.vagrant.d/insecure_private_key
-              device2_hdd_dev=/dev/sdc
-
+      - description: Ansible provisioner
+        type: ansible
+        hosts: all
+        ask_become_pass: true
+        playbook: ../ansible/playbooks/deploy-swarm.yml
+        config_file: ../ansible/ansible.cfg
+        inventory_path: ../ansible/inventory
 

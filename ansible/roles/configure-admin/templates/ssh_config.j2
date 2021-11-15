@@ -1,4 +1,4 @@
-{% for host in groups['docker_nodes'] + groups['proxy_nodes'] %}
+{% for host in groups['swarm_managers'] + groups['swarm_workers'] + groups['proxy_nodes'] %}
 Host {{ host }}
   Hostname {{ host }}
   User docker

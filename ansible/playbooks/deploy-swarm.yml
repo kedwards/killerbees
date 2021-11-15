@@ -15,13 +15,13 @@
     - configure-admin
 
 - name: copy public key to nodes
-  hosts: docker_nodes
+  hosts: swarm_*
   become: yes
   roles:
     - copy-keys
 
 - name: install docker
-  hosts: docker_nodes
+  hosts: swarm_*
   become: yes
   roles:
     - docker-installation

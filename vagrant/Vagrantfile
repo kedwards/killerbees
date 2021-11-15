@@ -27,11 +27,31 @@ end
 #
 # load configs
 #
-config = YAML.load_file(File.join(File.dirname(__FILE__), 'config.yml'))
-# ansible_var_file = File.join(File.dirname(__FILE__), 'ansible/ansible_vars.yml')
-# if File.exist?(ansible_var_file)
-#   ansible_extra_vars = YAML.load_file(ansible_var_file)
-# end
+config = nil
+(['config.default.yml', 'config.yml']).each do |config_file|
+  config_file = File.join(File.dirname(__FILE__), config_file)
+  if File.exist?(config_file)
+    config = YAML.load_file(config_file)
+  end
+end
+if config.nil?
+  puts "No configuration found"
+  exit 1
+elsif config[config['use']].nil?
+  puts "No configuration for #{config['use']}"
+  exit 1
+end
+cfg = config[config['use']]
+
+provisioner = false
+provisoner_grp_index = nil
+cfg.each_with_index do |grp, grp_index|
+  if grp['type'] == 'provisioner'
+    provisioner = true
+    provisoner_grp_index = grp_index
+    break
+  end
+end
 
 #
 # plugins are init and loaded
@@ -49,156 +69,155 @@ if plugin_status === true
   exec "vagrant #{ARGV.join" "}"
 end
 
-cfg = config[config['use']]
-if cfg.nil?
-  puts "No configuration found for #{config['use']}"
-  exit 1
-end
-
-# $install_docker_script = <<EOS
-# echo Installing Docker...
-# curl -sSL https://get.docker.com/ | sh
-# sudo usermod -aG docker vagrant
-# EOS
-
-# $manager_script = <<EOS
-# echo Swarm Init...
-# sudo docker swarm init --listen-addr #{subnet}#{manager_ip}:2377 --advertise-addr #{subnet}#{manager_ip}:2377
-# sudo docker swarm join-token --quiet worker > /vagrant/worker_token
-# EOS
-
-# $worker_script = <<EOS
-# echo Swarm Join...
-# sudo docker swarm join --token $(cat /vagrant/worker_token) #{subnet}#{manager_ip}:2377
-# EOS
-
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  cfg.each do |grp|
-    num_nodes = grp['nodes']
-    (1..num_nodes).each do |i|
-      vm_name = "%s%02d" % [grp['name_prefix'], i]
-      config.vm.define vm_name do |srv|
-        srv.vm.hostname = vm_name
-        srv.disksize.size = grp['disk_size']
-        guest_ipaddr = grp['ip_addr'].to_s + (i + 1).to_s
-        srv.vm.provision :shell, inline: "echo #{guest_ipaddr} #{vm_name} >>  /etc/hosts", privileged: true
-
-        if not grp['provisioner'].nil?
-          grp['provisioner'].each do |p|
-            case p['type']
-              when 'ansible'
-                ansible_var_file = File.join(File.dirname(__FILE__), 'ansible/ansible_vars.yml')
-                if File.exist?(ansible_var_file)
-                  ansible_extra_vars = YAML.load_file(ansible_var_file)
-                end
-                srv.vm.provision p['type'] do |a|
-                  a.playbook = p['playbook']
-                  a.config_file = p['config_file']
-                  a.ask_become_pass = p['ask_become_pass']
-                  a.verbose = true
-                  if not ansible_extra_vars.empty?
-                    a.extra_vars = ansible_extra_vars
-                  end
-                  if not p['inventory_path'].empty?
-                    a.inventory_path = p['inventory_path']
+  group_count = cfg.count
+  cfg.each_with_index do |grp, grp_index|
+    grp_num_nodes = nil
+    if not grp['nodes'].nil? and grp['nodes'] > 0
+      (1..grp['nodes']).each_with_index do |node, node_index|
+        vm_name = "%s%02d" % [grp['name_prefix'], node]
+        if not grp['type'].nil?
+          case grp['type']
+          when 'docker'
+            if not grp['image'].nil?
+              config.vm.define vm_name do |srv|
+                srv.vm.hostname = vm_name
+                srv.vm.provider "docker" do |d|
+                  d.image = grp['image']
+                  if not grp['ports'].nil?
+                    (grp['ports']).each_with_index do |port, port_index|
+                      if (not port['host'].nil?) && (not port['guest'].nil?)
+                        d.ports = ["#{port['host']}:#{port['guest']}"]
+                      end
+                    end
                   end
                 end
-
-              when 'shell'
-                srv.vm.provision p['type'], inline: p['script'], privileged: true
-
-              when 'vai'
-                config.vm.provision :vai do |vai|
-                  vai.inventory_dir = p['path']
-                  if not p['filename'].nil?
-                    vai.inventory_filename = p['filename']
-                  end
-                  vai.groups = {
-                    'proxy_nodes'     => ['proxy01'],
-                    'swarm_managers'  => ['manager01', 'manager02', 'manager03'],
-                    'gluster_nodes'   => ['manager01', 'manager02', 'manager03'],
-                    'swarm_workers'   => ['worker01', 'worker02'],
-                    'docker_nodes'    => ['manager01', 'manager02', 'manager03', 'worker01', 'worker02'],
-                    'docker:children' => ['proxy_nodes', 'docker_nodes', 'swarm_managers', 'swarm_workers']
-                  }
-                end
-            end
-          end
-        end
-
-        case grp['type']
-        when 'docker'
-          srv.vm.provider "docker" do |d|
-            d.image = grp['image']
-            if not grp['ports'].nil?
-              host_port = grp['ports']['host'].to_i + i
-              d.ports = ["#{host_port}:#{grp['ports']['guest']}"]
-            end
-          end
-
-        when 'vb'
-          srv.vm.network "private_network", ip: guest_ipaddr, netmask: grp['netmask']
-          srv.vm.synced_folder '.', '/vagrant', disabled: grp['synced_folder_disabled']
-          srv.vm.box_check_update = grp['box_check_update']
-          srv.ssh.forward_agent = true
-
-          srv.vm.provider :virtualbox do |vb, override|
-            override.vm.box = grp['box']
-            vb.check_guest_additions = grp['check_guest_additions']
-            vb.name = vm_name
-            vb.memory = grp['ram']
-            vb.cpus = grp['vcpu']
-            vb.customize [
-              "modifyvm", :id,
-              "--uartmode1", "disconnected",
-              "--nictype1", "virtio",
-              "--natdnshostresolver1", "on"
-            ]
-
-            disks = grp['disks'].to_i
-            disk_size = grp['disk_size'].to_i
-
-            (1..disks).each do |k|
-              # Get disk path
-              # line = `VBoxManage list systemproperties | grep "Default machine folder"`
-              # vb_machine_folder = line.split(':')[1].strip()
-              # second_disk = File.join(vb_machine_folder, vb.name, 'disk2.vdi')
-              second_disk = File.join(VAGRANT_ROOT, "DATA/#{vm_name}_disk#{k}.vdi")
-              unless File.exist?(second_disk)
-                vb.customize ['createhd', '--filename', second_disk, '--size', disk_size * 1024]
-                # vb.customize ['createmedium', 'disk', '--filename', second_disk, '--size', 10 * 1024]
               end
-              vb.customize ['storageattach', :id, '--storagectl', grp['disk_type'], '--port', k+1, '--device', 0, '--type', 'hdd', '--medium', second_disk]
+            else
+              puts "  #{vm_name} - No image specified"
             end
 
-            if not grp['usb'].nil?
-              grp['usb'].each do |usb, index|
-                vb.customize ["modifyvm", :id, "--usb", "on"]
-                vb.customize ['usbfilter', 'add', "#{index}", '--target', :id, '--name', "#{usb.name}", '--vendorid', "#{usb.vendorid}", '--productid', "#{usb.productid}"]
+          when 'vb'
+            if not grp['box'].nil?
+              guest_ipaddr = grp['ip_addr'] + (node + 1).to_s
+              os_disk_size = grp['os_disk'] || '10 GB'
+              netmask = grp['netmask'] || "255.255.255.0"
+              gui = grp['gui'] || false
+              check_guest_additions = grp['check_guest_additions'] || false
+              memory = grp['memory'] || 1024
+              cpus = grp['cpus'] || 1
+
+              config.vm.define vm_name do |srv|
+                srv.ssh.forward_agent = true
+                srv.vm.network "private_network", ip: guest_ipaddr, netmask: grp['netmask'] || "255.255.255.0"
+                srv.vm.provider :virtualbox do |vb, override|
+                  vb.name = vm_name
+                  override.vm.box = grp['box']
+                  vb.gui = gui
+                  vb.check_guest_additions = 'false'
+                  vb.memory = memory
+                  vb.cpus = cpus
+                  if not grp['customize'].nil?
+                    (grp['customize']).each_with_index do |customize, customize_index|
+                      vb.customize ["modifyvm", :id, "#{customize['command']}", "#{customize['value']}"]
+                    end
+                  end
+
+                  disks = grp['disks'].to_i
+                  disk_size = grp['disk_size'].to_i
+
+                  (1..disks).each do |k|
+                    # Get disk path
+                    # line = `VBoxManage list systemproperties | grep "Default machine folder"`
+                    # vb_machine_folder = line.split(':')[1].strip()
+                    # second_disk = File.join(vb_machine_folder, vb.name, 'disk2.vdi')
+                    second_disk = File.join(VAGRANT_ROOT, "DATA/#{vm_name}_disk#{k}.vdi")
+                    unless File.exist?(second_disk)
+                      vb.customize ['createhd', '--filename', second_disk, '--size', disk_size * 1024]
+                      # vb.customize ['createmedium', 'disk', '--filename', second_disk, '--size', 10 * 1024]
+                    end
+                    vb.customize ['storageattach', :id, '--storagectl', grp['disk_type'], '--port', k+1, '--device', 0, '--type', 'hdd', '--medium', second_disk]
+                  end
+
+                  if not grp['usb'].nil?
+                    grp['usb'].each do |usb, index|
+                      vb.customize ["modifyvm", :id, "--usb", "on"]
+                      vb.customize ['usbfilter', 'add', "#{index}", '--target', :id, '--name', "#{usb.name}", '--vendorid', "#{usb.vendorid}", '--productid', "#{usb.productid}"]
+                    end
+                  end
+                end
+
+                if provisioner and not provisoner_grp_index.nil? and (provisoner_grp_index - 1) == grp_index and (grp['nodes'] - 1) == node_index
+                  cfg[provisoner_grp_index]['provision'].each do |p|
+                    case p['type']
+                    when 'vai'
+                      srv.vm.provision :vai do |vai|
+                        if not p['path'].nil?
+                          vai.inventory_dir = p['path']
+                        end
+                        if not p['filename'].nil?
+                          vai.inventory_filename = p['filename']
+                        end
+                        if not p['ansible_groups'].nil? and p['ansible_groups'].count > 0
+                          vai.groups = {
+                            # p['ansible_groups'].each do |g|
+                              'proxy_nodes' => ['proxy01'],
+                              'swarm_managers' => ['manager01', 'manager02', 'manager03'],
+                              'swarm_workers' => ['worker01', 'worker02', 'worker03'],
+                              'gluster_nodes' => ['manager01', 'manager02', 'manager03'],
+                              'docker:children' => ['proxy_nodes', 'swarm_managers', 'swarm_workers']
+                            # end
+                          }
+                        end
+                      end
+                    when 'ansible'
+                      srv.vm.provision p['type'] do |a|
+                        a.playbook = p['playbook']
+                        a.config_file = p['config_file']
+                        a.ask_become_pass = p['ask_become_pass']
+                        a.verbose = true
+                        if not p['hosts'].nil?
+                          a.limit = p['hosts']
+                        end
+                        if not p['inventory_path'].nil?
+                          a.inventory_path = p['inventory_path']
+                        end
+                      end
+                    when 'shell'
+                      srv.vm.provision p['type'], inline: p['script'], privileged: true
+                    end
+                  end
+                end
               end
+            else
+              puts "  #{vm_name} - No box specified"
             end
-          end
 
-        when 'aws'
-          srv.vm.provider :aws do |aws, override|
-            override.vm.box = grp['box']
-            aws.ami = grp['ami']
-            override.ssh.username = grp['ssh_username']
-            override.ssh.private_key_path = grp['private_key_path']
-            aws.tenancy = "default"
-            aws.access_key_id = ENV['AWS_ACCESS_KEY_ID']
-            aws.secret_access_key = ENV['AWS_SECRET_ACCESS_KEY']
-            aws.session_token = ENV['AWS_SESSION_TOKEN']
-            aws.instance_type = grp['instance_type']
-            aws.region = grp['region']
-            aws.keypair_name = grp['keypair_name']
-            aws.subnet_id = grp['subnet_id']
-            aws.security_groups = grp['security_group']
-            aws.associate_public_ip = grp['associate_public_ip']
-            aws.tags = {
-              'Name' => vm_name,
-              'Team' => grp['tags']['team']
-            }
+          when 'aws'
+            if not grp['ami'].nil?
+              srv.vm.provider :aws do |aws, override|
+                override.vm.box = grp['box']
+                aws.ami = grp['ami']
+                override.ssh.username = grp['ssh_username']
+                override.ssh.private_key_path = grp['private_key_path']
+                aws.tenancy = "default"
+                aws.access_key_id = ENV['AWS_ACCESS_KEY_ID']
+                aws.secret_access_key = ENV['AWS_SECRET_ACCESS_KEY']
+                aws.session_token = ENV['AWS_SESSION_TOKEN']
+                aws.instance_type = grp['instance_type']
+                aws.region = grp['region']
+                aws.keypair_name = grp['keypair_name']
+                aws.subnet_id = grp['subnet_id']
+                aws.security_groups = grp['security_group']
+                aws.associate_public_ip = grp['associate_public_ip']
+                aws.tags = {
+                  'Name' => vm_name,
+                  'Team' => grp['tags']['team']
+                }
+              end
+            else
+              puts "  #{vm_name} - No AMI specified"
+            end
           end
         end
       end
