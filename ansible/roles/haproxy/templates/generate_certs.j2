@@ -6,7 +6,7 @@ WORKING_DIR=/home/{{ ansible_user }}/ssl
 mkdir -p ${WORKING_DIR}
 
 PASSWORD=$(openssl rand -base64 32)
-SUBJ="/C=US/ST=somewhere/L=someplace/O=haproxy/OU=haproxy/CN=*.{{ app_domain_name }}"
+SUBJ="/C=CA/ST=Alerta/L=Calgary/O=haproxy/OU=haproxy/CN=*.{{ app_domain_name }}"
 
 KEY=${WORKING_DIR}/{{ app_domain_name }}.key.pem
 CERT=${WORKING_DIR}/{{ app_domain_name }}.cert.pem

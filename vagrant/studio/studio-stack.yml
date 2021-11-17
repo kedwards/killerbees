@@ -1,0 +1,161 @@
+version: "3.5"
+services:
+  redis:
+    image: redis:5.0.8
+    ports:
+      - 6380:6380
+    # specify port for redis, so other containers can connect to modified port, otherwise 6380 would be exposed only for host
+    command:
+      -- port 6380
+    networks:
+      - frontend
+
+  www:
+    depends_on:
+      - db
+      - redis
+    image: connectglobal/core:2.4.4
+    ports:
+      - "80"
+      - "4433:4433"
+      - "5000:5000/udp"
+      - "5001:5001/udp"
+      - "5000:5000/tcp"
+      - "5001:5001/tcp"
+      - "5100:5100/udp"
+      - "5101:5101/udp"
+    volumes:
+      - persistent_core_migrate:/home/rtlsserver/migrate
+      - persistent_core_plans:/var/www/html/sensmapserver/svgs/uploads/plans
+      - persistent_core_rtlsserver:/home/rtlsserver/persistent
+      - persistent_core_sewiortls:/home/sewiortls
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.studio.rule=Host(`studio.docker.local`)"
+        - "traefik.http.services.studio.loadbalancer.server.port=80"
+        - "traefik.docker.network=web"
+    networks:
+      - frontend
+      - web
+    environment:
+      LOG_CHANNEL: stderr
+
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: rtls_main
+      DB_USERNAME: laravel_user
+      DB_PASSWORD_FILE: /run/secrets/db_password
+
+      DB_HOST_SECOND: db
+      DB_PORT_SECOND: 3306
+      DB_DATABASE_SECOND: sensmapserver
+      DB_USERNAME_SECOND: laravel_user
+      DB_PASSWORD_SECOND_FILE: /run/secrets/db_password
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6380
+
+      PHPMYADMIN_HOST: phpmyadmin
+    secrets:
+      - source: db_password
+        target: db_password
+
+  rtlsio:
+    depends_on:
+      - www
+    image: connectglobal/rtls-io:2.4.4
+    volumes:
+      - persistent_core_rtlsserver:/home/rtlsserver/persistent
+      - persistent_core_migrate:/home/rtlsserver/migrate
+      - persistent_rtlsio_state:/home/rtlsio/state
+    networks:
+      - frontend
+    environment:
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+    secrets:
+      - jwt_secret
+
+  db:
+    image: connectglobal/db:2.4.4
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      ##########################################################################
+      ## MYSQL_ROOT_USERNAME and MYSQL_ROOT_PASSWORD_FILE                      #
+      #                                                                        #
+      # creates two logins to database: root and sewiortls with                #
+      # password defined in secret file db_root_password                       #
+      # this is only optional, if you don't want (need) this access,           #
+      # you can safely comment MYSQL_ROOT_USERNAME and MYSQL_ROOT_PASWORD_FILE #
+      ##########################################################################
+      MYSQL_ROOT_USERNAME: sewiortls
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    volumes:
+      - persistent_db_dump:/docker-entrypoint-initdb.d/
+      # - ./mysql.conf:/etc/mysql/conf.d
+      - persistent:/var/lib/mysql
+    networks:
+      - frontend
+    secrets:
+      - db_password
+      - db_root_password
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    # no need to publish ports, www will directly communicate with this container
+    networks:
+      - frontend
+    environment:
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      # in case that studio will be used with https
+      # then pma_absolute_uri should be set to https://localhost/phpmyadmin-d/
+      # to avoid message in phpmyadmin warning about http and https mismatch
+      PMA_ABSOLUTE_URI: /phpmyadmin-d/
+    secrets:
+      - db_password
+      - db_root_password
+
+volumes:
+  persistent:
+    driver: glusterfs
+    name: "gfs/studio_mysql_data"
+  persistent_db_dump:
+    driver: glusterfs
+    name: "gfs/studio_mysql_dump"
+  persistent_core_migrate:
+    driver: glusterfs
+    name: "gfs/studio_migrate"
+  persistent_core_plans:
+    driver: glusterfs
+    name: "gfs/studio_plans"
+  persistent_core_rtlsserver:
+    driver: glusterfs
+    name: "gfs/studio_rtlsserver"
+  persistent_core_sewiortls:
+    driver: glusterfs
+    name: "gfs/studio_rtlsserver"
+  persistent_rtlsio_state:
+    driver: glusterfs
+    name: "gfs/studio_rtlsio"
+
+networks:
+  web:
+    external: true
+    name: web
+  frontend:
+    driver: overlay
+    attachable: true
+    name: frontend
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  db_root_password:
+    file: ./secrets/db_root_password.txt

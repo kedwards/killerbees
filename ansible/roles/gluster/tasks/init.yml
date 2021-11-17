@@ -1,35 +1,54 @@
 ---
 - name: Check if Gluster volume is initialized
   ansible.builtin.stat:
-    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}/brick"
+    path: "{{ gluster_volume_path }}/brick"
   register: glustervolume
 
 - name: Verify Gluster volume path
   file:
-    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}/brick"
+    path: "{{ gluster_volume_path }}/brick"
     state: directory
 
-- name: Initialize Gluster Cluster (on first node)
+- name: Initialize Gluster Cluster (on first manager)
   shell: gluster peer probe {{ item }}
-  loop: "{{ groups['gluster_nodes'] }}"
-  when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
+  loop: "{{ groups['swarm_managers'] + groups['swarm_workers'] }}"
+  when: glustervolume.stat.exists == false and inventory_hostname == groups['swarm_managers'][0]
 
-- name: Create Gluster Volume (on first node)
+- name: Build a list of gluster servers.
+  set_fact:
+    gluster_servers: "{{ \":{{ gluster_volume_path }}/brick \".join((groups['swarm_managers'] + groups['swarm_workers'])) }}:{{ gluster_volume_path }}/brick"
+  with_items: "{{ groups['swarm_managers'] + groups['swarm_workers'] }}"
+  when: inventory_hostname == groups['swarm_managers'][0]
+
+# - name: Create Gluster Volume (on first manager)
+#   shell: >
+#     gluster volume create {{ gluster_volume_name }} \
+#     replica 3 \
+#     {{ groups['gluster_nodes'][0] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes'][0] }}/brick \
+#     {{ groups['gluster_nodes'][1] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes'][1] }}/brick \
+#     {{ groups['gluster_nodes'][2] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes'][2] }}/brick
+#   when: glustervolume.stat.exists == false and inventory_hostname == groups['swarm_managers'][0]
+
+- name: Create Gluster Volume (on first manager)
   shell: >
     gluster volume create {{ gluster_volume_name }} \
-    replica 3 \
-    {{ groups['gluster_nodes'][0] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes'][0] }}/brick \
-    {{ groups['gluster_nodes'][1] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes'][1] }}/brick \
-    {{ groups['gluster_nodes'][2] }}:{{ gluster_volume_path }}/{{ groups['gluster_nodes'][2] }}/brick
+    replica {{ groups['swarm_managers']|length + groups['swarm_workers']|length }} \
+    {{ gluster_servers }}
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
 
-- name: Secure Gluster Volume (on first node)
+- name: Build a list of gluster names.
+  set_fact:
+    gluster_names: "{{ \",\".join((groups['swarm_managers'] + groups['swarm_workers'])) }}"
+  with_items: "{{ groups['swarm_managers'] + groups['swarm_workers'] }}"
+  when: inventory_hostname == groups['swarm_managers'][0]
+
+- name: Secure Gluster Volume (on first manager)
   shell: >
     gluster volume set {{ gluster_volume_name }} auth.allow  \
-    {{ groups['gluster_nodes'][0] }},{{ groups['gluster_nodes'][1] }},{{ groups['gluster_nodes'][2] }}
+    {{ gluster_names }}
   when: inventory_hostname == groups['gluster_nodes'][0]
 
-- name: Start Gluster Volume (on first node)
+- name: Start Gluster Volume (on first manager)
   shell: gluster volume start {{ gluster_volume_name }}
   when: glustervolume.stat.exists == false and inventory_hostname == groups['gluster_nodes'][0]
 

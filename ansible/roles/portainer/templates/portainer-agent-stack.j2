@@ -2,7 +2,7 @@ version: '3.5'
 
 services:
   agent:
-    image: portainer/agent:latest
+    image: portainer/agent:2.9.2
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/volumes:/var/lib/docker/volumes
@@ -16,14 +16,14 @@ services:
         constraints: [node.platform.os == linux]
 
   portainer:
-    image: portainer/portainer:latest
+    image: portainer/portainer-ce:2.9.2
     command: "-H tcp://tasks.agent:9001 --tlsskipverify --bind :{{ portainer_admin_port }} --tunnel-port {{ portainer_tunnel_port }} --admin-password {{ portainerpassword.stdout }}"
     ports:
       - "{{ portainer_admin_port }}:{{ portainer_admin_port }}"
       - "{{ portainer_tunnel_port }}:{{ portainer_tunnel_port }}"
     volumes:
       - {{ portainer_volume_name }}:/data
-    networks`:
+    networks:
       - {{ portainer_network_name }}
       - {{ traefik_network_name }}
     environment:
@@ -33,22 +33,22 @@ services:
         - "traefik.enable=true"
         - "traefik.http.routers.portainer.rule=Host(`{{ portainer_app_name }}.{{ app_domain_name }}`)"
         - "traefik.http.services.portainer.loadbalancer.server.port={{ portainer_admin_port }}"
-        - "traefik.docker.network={ {traefik_network_name }}"
+        - "traefik.docker.network={{ traefik_network_name }}"
       mode: replicated
       replicas: 1
       placement:
         constraints: [node.role == manager]
 
 networks:
-  {{portainer_network_name}}:
+  {{ portainer_network_name }}:
     driver: overlay
     attachable: true
-    name: {{portainer_network_name}}
-  {{traefik_network_name}}:
+    name: {{ portainer_network_name }}
+  {{ traefik_network_name }}:
     external: true
-    name: {{traefik_network_name}}
+    name: {{ traefik_network_name }}
 
 volumes:
-  {{portainer_volume_name}}:
+  {{ portainer_volume_name }}:
     driver: glusterfs
-    name: "gfs/{{portainer_gfs_subdir}}"
+    name: "gfs/{{ portainer_gfs_subdir }}"
