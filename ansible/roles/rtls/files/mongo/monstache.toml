@@ -1,0 +1,49 @@
+# The URL to connect to MongoDB
+# must follow the Standard Connection String Format
+mongo-url = "mongodb://mongo-single:27017/?replicaSet=rs0"
+
+# An array of URLs to connect to the Elasticsearch REST Interface
+elasticsearch-urls = ["http://es-single:9200"]
+
+# opt in to using MongoDB change streams.
+change-stream-namespaces = ['test']
+
+# MongoDB database that monstache will store metadata under.
+# This metadata includes information to support resuming from
+# a specific point in the oplog and managing cluster mode.
+config-database-name = "monstache"
+
+# Optional Elasticsearch username for basic auth
+elasticsearch-user = ""
+
+# Optional Elasticsearch password for basic auth
+elasticsearch-password = ""
+
+# allows you to directly copy collections from MongoDB to Elasticsearch
+direct-read-namespaces = ["rtls.analytics"]
+
+# monstache writes the timestamp of MongoDB operations
+# it has successfully synced to Elasticsearch to the collection monstache.monstache.
+# It also reads that timestamp from that collection when it starts in order to
+# replay events which it might have missed because monstache was stopped.
+resume = true
+
+# sync create and update operations in MongoDB as updates to Elasticsearch
+index-as-update = true
+
+# If you enable this setting and do not see serialized updates in MongoDB
+# being indexed correctly then you can mitigate this problem with the
+# following settings:
+#elasticsearch-max-conns = 1
+#[gtm-settings]
+#buffer-size = 2048
+#buffer-duration = 4s
+
+# monstache will be directed to override the default index and type assigned to documents in Elasticsearch.
+[[mapping]]
+# The MongoDB namespace, db.collection, to apply the mapping to.
+namespace = "rtls.analytics"
+
+# Allows you to override the default index that monstache will send documents to.
+# By default, the index is the same as the MongoDB namespace.
+index = "rtls-anaylytics"

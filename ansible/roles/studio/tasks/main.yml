@@ -1,0 +1,38 @@
+---
+- name: Verify stacks directory exists (on first swarm node)
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/stacks"
+    state: directory
+
+- name: Create docker-compose stack file (on first swarm node)
+  ansible.builtin.template:
+    src: studio-stack.j2
+    dest: "/home/{{ ansible_user }}/stacks/studio-stack.yml"
+    mode: 0775
+
+- name: Copy secrets to remote (on first swarm node)
+  ansible.builtin.copy:
+    src: secrets/
+    dest: "/home/{{ ansible_user }}/stacks/secrets/"
+    directory_mode: yes
+
+- name: Create secrets
+  community.docker.docker_secret:
+    name: "{{ item.name }}"
+    data: "{{ lookup('file', 'secrets/{{ item.name }}.txt') | b64encode }}"
+    data_is_b64: true
+    state: present
+  with_items: "{{ studio_secrets }}"
+
+- name: Install jsondiff, pyyaml Python library
+  ansible.builtin.pip:
+    name:
+      - jsondiff
+      - pyyaml
+
+- name: Deploy stack from a compose file (on first swarm node)
+  community.docker.docker_stack:
+    state: present
+    name: studio
+    compose:
+      - /home/{{ ansible_user }}/stacks/studio-stack.yml

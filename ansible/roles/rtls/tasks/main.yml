@@ -1,0 +1,42 @@
+---
+- name: Verify stacks directory exists (on first swarm node)
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/stacks"
+    state: directory
+
+- name: Create docker-compose stack file (on first swarm node)
+  ansible.builtin.template:
+    src: rtls-stack.j2
+    dest: "/home/{{ ansible_user }}/stacks/rtls-stack.yml"
+    mode: 0775
+
+- name: Copy mongo to remote (on first swarm node)
+  ansible.builtin.copy:
+    src: mongo/
+    dest: "/home/{{ ansible_user }}/stacks/mongo/"
+    directory_mode: 0755
+
+- name: Copy secrets to remote (on first swarm node)
+  ansible.builtin.copy:
+    src: secrets/
+    dest: "/home/{{ ansible_user }}/stacks/secrets/"
+    directory_mode: 0755
+
+- name: Install jsondiff, pyyaml Python library
+  ansible.builtin.pip:
+    name:
+      - jsondiff
+      - pyyaml
+
+- name: Log into DockerHub
+  community.docker.docker_login:
+    username: "{{ dockerhub_username }}"
+    password: "{{ dockerhub_password }}"
+
+- name: Deploy stack from a compose file (on first swarm node)
+  community.docker.docker_stack:
+    state: present
+    with_registry_auth: yes
+    name: rtls
+    compose:
+      - /home/{{ ansible_user }}/stacks/rtls-stack.yml

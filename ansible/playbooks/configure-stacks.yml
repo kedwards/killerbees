@@ -1,0 +1,8 @@
+- name: configure services
+  hosts: swarm_managers[0]
+  become: yes
+  roles:
+    # - traefik
+    # - portainer
+    - studio
+    # - rtls

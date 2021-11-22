@@ -5,7 +5,7 @@
   roles:
     - create-sudo-user
     - install-modules
-    - configure-hosts-file
+    - configure-hostsname
 
 - name: setup docker user on admin nodes
   hosts: admins
@@ -22,13 +22,6 @@
     - docker-installation
     - docker-swarm-init
     - gluster
-
-- name: configure services
-  hosts: swarm_managers[0]
-  become: yes
-  roles:
-    - traefik
-    - portainer
 
 - name: install & configure HA Proxy
   hosts: proxy_nodes[0]

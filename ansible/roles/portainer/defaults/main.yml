@@ -7,9 +7,7 @@ portainer_app_name: portainer
 portainer_admin_password: password1234
 portainer_agent_secret: mysecrettoken
 portainer_agent_version: 2.9.2
-
+portainer_version: 2.9.2
 gluster_mount_path: /mnt/gfs
-
 traefik_network_name: web
-
 app_domain_name: docker.local

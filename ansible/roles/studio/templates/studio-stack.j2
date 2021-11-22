@@ -1,23 +1,28 @@
-version: "3.5"
+version: '3.5'
+
 services:
   redis:
-    image: redis:5.0.8
+    image: redis:{{ redis_version }}
     ports:
-      - 6380:6380
-    # specify port for redis, so other containers can connect to modified port, otherwise 6380 would be exposed only for host
+      - {{ redis_port }}:{{ redis_port }}
     command:
-      -- port 6380
+      -- port {{ redis_port }}
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
     networks:
-      - frontend
+      - {{ rtls_network_name }}
 
   www:
     depends_on:
       - db
       - redis
-    image: connectglobal/core:2.4.4
+    image: connectglobal/core:{{ studio_version }}
     ports:
       - "80"
-      - "4433:4433"
+      - "443"
       - "5000:5000/udp"
       - "5001:5001/udp"
       - "5000:5000/tcp"
@@ -32,30 +37,28 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.studio.rule=Host(`studio.docker.local`)"
-        - "traefik.http.services.studio.loadbalancer.server.port=80"
-        - "traefik.docker.network=web"
+        - "traefik.http.routers.studio.rule=Host(`{{ studio_app_name }}.{{ app_domain_name }}`)"
+        - "traefik.http.services.studio.loadbalancer.server.port={{ studio_app_port }}"
+        - "traefik.docker.network={{ traefik_network_name }}"
+      placement:
+        constraints: [node.role == manager]
     networks:
-      - frontend
-      - web
+      - {{ rtls_network_name }}
+      - {{ traefik_network_name }}
     environment:
       LOG_CHANNEL: stderr
-
       DB_HOST: db
       DB_PORT: 3306
       DB_DATABASE: rtls_main
       DB_USERNAME: laravel_user
       DB_PASSWORD_FILE: /run/secrets/db_password
-
       DB_HOST_SECOND: db
       DB_PORT_SECOND: 3306
       DB_DATABASE_SECOND: sensmapserver
       DB_USERNAME_SECOND: laravel_user
       DB_PASSWORD_SECOND_FILE: /run/secrets/db_password
-
       REDIS_HOST: redis
       REDIS_PORT: 6380
-
       PHPMYADMIN_HOST: phpmyadmin
     secrets:
       - source: db_password
@@ -64,61 +67,49 @@ services:
   rtlsio:
     depends_on:
       - www
-    image: connectglobal/rtls-io:2.4.4
+    image: connectglobal/rtls-io:{{ studio_version }}
     volumes:
       - persistent_core_rtlsserver:/home/rtlsserver/persistent
       - persistent_core_migrate:/home/rtlsserver/migrate
       - persistent_rtlsio_state:/home/rtlsio/state
     networks:
-      - frontend
+      - {{ rtls_network_name }}
     environment:
       JWT_SECRET_FILE: /run/secrets/jwt_secret
     secrets:
       - jwt_secret
 
   db:
-    image: connectglobal/db:2.4.4
+    image: connectglobal/db:{{ studio_version }}
     ports:
       - "3306:3306"
     environment:
       MYSQL_USER: laravel_user
       MYSQL_PASSWORD_FILE: /run/secrets/db_password
-      ##########################################################################
-      ## MYSQL_ROOT_USERNAME and MYSQL_ROOT_PASSWORD_FILE                      #
-      #                                                                        #
-      # creates two logins to database: root and sewiortls with                #
-      # password defined in secret file db_root_password                       #
-      # this is only optional, if you don't want (need) this access,           #
-      # you can safely comment MYSQL_ROOT_USERNAME and MYSQL_ROOT_PASWORD_FILE #
-      ##########################################################################
       MYSQL_ROOT_USERNAME: sewiortls
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
     volumes:
       - persistent_db_dump:/docker-entrypoint-initdb.d/
-      # - ./mysql.conf:/etc/mysql/conf.d
       - persistent:/var/lib/mysql
     networks:
-      - frontend
+      - {{ rtls_network_name }}
     secrets:
       - db_password
       - db_root_password
 
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    # no need to publish ports, www will directly communicate with this container
+  adminer:
+    image: adminer
+    ports:
+      - "8080"
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.adminer.rule=Host(`{{ studio_dbmngr_name }}.{{ app_domain_name }}`)"
+        - "traefik.http.services.adminer.loadbalancer.server.port={{ studio_dbmngr_port }}"
+        - "traefik.docker.network=web"
     networks:
-      - frontend
-    environment:
-      MYSQL_USER: laravel_user
-      MYSQL_PASSWORD_FILE: /run/secrets/db_password
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
-      # in case that studio will be used with https
-      # then pma_absolute_uri should be set to https://localhost/phpmyadmin-d/
-      # to avoid message in phpmyadmin warning about http and https mismatch
-      PMA_ABSOLUTE_URI: /phpmyadmin-d/
-    secrets:
-      - db_password
-      - db_root_password
+      - {{ rtls_network_name }}
+      - {{ traefik_network_name }}
 
 volumes:
   persistent:
@@ -143,19 +134,20 @@ volumes:
     driver: glusterfs
     name: "gfs/studio_rtlsio"
 
-networks:
-  web:
-    external: true
-    name: web
-  frontend:
-    driver: overlay
-    attachable: true
-    name: frontend
-
 secrets:
   db_password:
-    file: ./secrets/db_password.txt
+    external: true
   jwt_secret:
-    file: ./secrets/jwt_secret.txt
+    external: true
   db_root_password:
-    file: ./secrets/db_root_password.txt
+    external: true
+
+networks:
+  {{ rtls_network_name }}:
+    driver: overlay
+    attachable: true
+    name: {{ rtls_network_name }}
+  {{ traefik_network_name }}:
+    external: true
+    name: {{ traefik_network_name }}
+

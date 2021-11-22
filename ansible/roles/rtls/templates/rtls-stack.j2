@@ -1,0 +1,127 @@
+version: '3.5'
+
+services:
+  rtls-api:
+    image: connectglobal/rtls-api:{{ rtls_api_version }}
+    ports:
+      - {{ rtls_api_app_port }}:{{ rtls_api_app_port }}
+    volumes:
+      - persistent_core_plans:/home/node/api/public/images/plans
+    networks:
+      - {{ rtls_network_name }}
+      - {{ traefik_network_name }}
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.rtls-api.rule=Host(`{{ rtls_api_app_name }}.{{ app_domain_name }}`)"
+        - "traefik.http.services.rtls-api.loadbalancer.server.port={{ rtls_api_app_port }}"
+        - "traefik.docker.network={{ traefik_network_name }}"
+      mode: replicated
+      replicas: 1
+    secrets:
+      - db
+      - db_host
+      - db_password
+      - db_user
+      - mongodb_username
+      - mongodb_password
+      - smtp_password
+      - x_api_key
+      - wise4050_password
+
+  rtls-web:
+    image: connectglobal/rtls-web:{{ rtls_web_version }}
+    networks:
+      - {{ rtls_network_name }}
+      - {{ traefik_network_name }}
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.rtls-web.rule=Host(`{{ rtls_web_app_name }}.{{ app_domain_name }}`)"
+        - "traefik.http.services.rtls-web.loadbalancer.server.port={{ rtls_web_app_port }}"
+        - "traefik.docker.network={{ traefik_network_name }}"
+      mode: replicated
+      replicas: 1
+
+  mongo1:
+    image: mongo
+    environment:
+      MONGO_INITDB_DATABASE: rtls
+    volumes:
+      - mongodb_data:/data/db
+      - mongo_dump:/data/seed
+    ports:
+      - 27017:27017
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+    networks:
+      - {{ rtls_network_name }}
+    secrets:
+      - mongodb_password
+      - mongodb_username
+
+  mongoex:
+    image: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo1:27017/?replicaSet=rs0
+    ports:
+      - {{ mongoex_app_port }}:{{ mongoex_app_port }}
+    networks:
+      - {{ rtls_network_name }}
+      - {{ traefik_network_name }}
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mongoex.rule=Host(`{{ mongoex_app_name }}.{{ app_domain_name }}`)"
+        - "traefik.http.services.mongoex.loadbalancer.server.port={{ mongoex_app_port }}"
+        - "traefik.docker.network={{ traefik_network_name }}"
+      mode: replicated
+      replicas: 1
+
+
+secrets:
+  db:
+    file: ./secrets/mysql_database
+  db_host:
+    file: ./secrets/mysql_host
+  db_password:
+    file: ./secrets/mysql_password
+  db_user:
+    file: ./secrets/mysql_user
+  mongodb_username:
+    file: ./secrets/db_user
+  mongodb_password:
+    file: ./secrets/db_password
+  smtp_password:
+    file: ./secrets/smtp_password
+  x_api_key:
+    file: ./secrets/x_api_key
+  wise4050_password:
+    file: ./secrets/wise_4050_pass
+
+volumes:
+  mongodb_data:
+    driver: glusterfs
+    name: "gfs/mongodb_data"
+  mongo_dump:
+    driver: glusterfs
+    name: "gfs/mongo_dump"
+  persistent_core_plans:
+    driver: glusterfs
+    name: "gfs/studio_plans"
+
+networks:
+  {{ rtls_network_name }}:
+    external: true
+    name: {{ traefik_network_name }}
+    #driver: overlay
+    #attachable: true
+    #name: {{ rtls_network_name }}
+
+  {{ traefik_network_name }}:
+    external: true
+    name: {{ traefik_network_name }}
+

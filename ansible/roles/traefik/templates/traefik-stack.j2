@@ -2,13 +2,15 @@ version: '3.5'
 
 services:
   reverse-proxy:
-    image: traefik:v2.0
+    image: traefik:{{ traefik_version }}
     command:
       - "--api.dashboard=true"
-      - "--providers.docker"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.swarmMode=true"
-      - "--entrypoints.web.address=:{{ traefik_listen_port }}"
+      - "--providers.docker.network={{ traefik_network_name }}"
       - "--providers.docker.exposedByDefault=false"
+      - "--entrypoints.web.address=:{{ traefik_listen_port }}"
+      - "--pilot.token={{ traefik_pilot_token }}"
     ports:
       - "{{ traefik_listen_port }}:{{ traefik_listen_port }}"
       - "{{ traefik_admin_port }}:8080"
