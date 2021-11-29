@@ -1,0 +1,8 @@
+traefik_listen_port: 80
+traefik_admin_port: 8080
+traefik_network_name: web
+traefik_app_name: traefik
+traefik_admin_user: admin
+traefik_admin_password: password1234
+traefik_version: 2.5
+traefik_pilot_token:

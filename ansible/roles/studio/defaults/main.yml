@@ -7,9 +7,10 @@ studio_dbmngr_name: adminer
 studio_dbmngr_port: 8080
 studio_app_name: studio
 studio_app_port: 80
-studio_version: 2.4.4
+studio_version: 2.5.1
 
 studio_secrets:
   - { name: 'db_password', value: 'sensmap' }
   - { name: 'db_root_password', value: 'sensmap' }
   - { name: 'jwt_secret', value: 'B1Bbr8EnAdJASz3l7WlXXX0U69f4UHsdtDX' }
+  - { name: 'internal_api_key', value: 'NFErWZEOD1zoKCEPNiSxLpcg3' }

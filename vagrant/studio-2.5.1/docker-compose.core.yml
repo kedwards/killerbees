@@ -1,0 +1,142 @@
+version: "3.4"
+services:
+    redis:
+        image: redis:5.0.8
+        ports:
+            - 6380:6380
+        # specify port for redis, so other containers can connect to modified port, otherwise 6380 would be exposed only for host
+        command:
+            -- port 6380
+        networks:
+            - frontend
+        restart: always
+    www:
+        depends_on:
+            - db
+            - redis
+        image: connectglobal/studio_core:2.5.1
+        ports:
+            - "80:80"
+            - "443:443"
+            - "5000:5000/udp"
+            - "5001:5001/udp"
+            - "5000:5000/tcp"
+            - "5001:5001/tcp"
+            - "5100:5100/udp"
+            - "5101:5101/udp"
+        volumes:
+            - ./storage/rtlsserver/migrate:/home/rtlsserver/migrate
+            - persistent_core_plans:/var/www/html/sensmapserver/svgs/uploads/plans
+            - persistent_core_rtlsserver:/home/rtlsserver/persistent
+            - persistent_core_sewiortls:/home/sewiortls
+            - persistent_rtlsio:/home/rtlsio
+        networks:
+            - frontend
+        environment:
+            LOG_CHANNEL: stderr
+
+            DB_HOST: db
+            DB_PORT: 3306
+            DB_DATABASE: rtls_main
+            DB_USERNAME: laravel_user
+            DB_PASSWORD_FILE: /run/secrets/db_password
+
+            DB_HOST_SECOND: db
+            DB_PORT_SECOND: 3306
+            DB_DATABASE_SECOND: sensmapserver
+            DB_USERNAME_SECOND: laravel_user
+            DB_PASSWORD_SECOND_FILE: /run/secrets/db_password
+
+            REDIS_HOST: redis
+            REDIS_PORT: 6380
+
+            PHPMYADMIN_HOST: phpmyadmin
+        secrets:
+          - db_password
+          - internal_api_key
+        restart: always
+    rtlsio:
+        depends_on:
+            - www
+        image: connectglobal/studio_io:2.5.1
+        volumes:
+            - persistent_rtlsio:/home/rtlsio
+        networks:
+            - frontend
+        environment:
+            JWT_SECRET_FILE: /run/secrets/jwt_secret
+            INTERNAL_API_KEY_FILE: /run/secrets/internal_api_key
+            WWW_HOST: www
+        secrets:
+          - jwt_secret
+          - internal_api_key
+        restart: always
+    db:
+        image: connectglobal/studio_db:2.5.1
+        ports:
+            - "3306:3306"
+        environment:
+            MYSQL_USER: laravel_user
+            MYSQL_PASSWORD_FILE: /run/secrets/db_password
+            ##########################################################################
+            ## MYSQL_ROOT_USERNAME and MYSQL_ROOT_PASSWORD_FILE                      #
+            #                                                                        #
+            # creates two logins to database: root and sewiortls with                #
+            # password defined in secret file db_root_password                       #
+            # this is only optional, if you don't want (need) this access,           #
+            # you can safely comment MYSQL_ROOT_USERNAME and MYSQL_ROOT_PASWORD_FILE #
+            ##########################################################################
+            MYSQL_ROOT_USERNAME: sewiortls
+            MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+            INTERNAL_API_KEY_FILE: /run/secrets/internal_api_key
+        volumes:
+            - ./db_dump:/docker-entrypoint-initdb.d/
+            - persistent:/var/lib/mysql
+        networks:
+            - frontend
+        secrets:
+          - db_password
+          - db_root_password
+          - internal_api_key
+        restart: always
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        # no need to publish ports, www will directly communicate with this container
+        networks:
+            - frontend
+        environment:
+            MYSQL_USER: laravel_user
+            MYSQL_PASSWORD_FILE: /run/secrets/db_password
+            MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+            # in case that studio will be used with https
+            # then pma_absolute_uri should be set to https://localhost/phpmyadmin-d/
+            # to avoid message in phpmyadmin warning about http and https mismatch
+            PMA_ABSOLUTE_URI: /phpmyadmin-d/
+        secrets:
+          - db_password
+          - db_root_password
+        restart: always
+volumes:
+    persistent:
+        name: rtls_studio_db
+    persistent_core_plans:
+        name: rtls_studio_core_plans
+    persistent_core_rtlsserver:
+        name: rtls_studio_core_rtlsserver
+    persistent_core_sewiortls:
+        name: rtls_studio_core_sewiortls
+    persistent_rtlsio:
+        name: rtls_studio_rtlsio
+
+secrets:
+    db_password:
+        file: ./secrets/db_password.txt
+    jwt_secret:
+        file: ./secrets/jwt_secret.txt
+    db_root_password:
+        file: ./secrets/db_root_password.txt
+    internal_api_key:
+        file: ./secrets/internal_api_key.txt
+
+networks:
+    frontend:

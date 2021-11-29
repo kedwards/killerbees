@@ -19,7 +19,7 @@ services:
     depends_on:
       - db
       - redis
-    image: connectglobal/core:{{ studio_version }}
+    image: connectglobal/studio_core:{{ studio_version }}
     ports:
       - "80"
       - "443"
@@ -61,13 +61,13 @@ services:
       REDIS_PORT: 6380
       PHPMYADMIN_HOST: phpmyadmin
     secrets:
-      - source: db_password
-        target: db_password
+      - db_password
+      - internal_api_key
 
   rtlsio:
     depends_on:
       - www
-    image: connectglobal/rtls-io:{{ studio_version }}
+    image: connectglobal/studio_io:{{ studio_version }}
     volumes:
       - persistent_core_rtlsserver:/home/rtlsserver/persistent
       - persistent_core_migrate:/home/rtlsserver/migrate
@@ -78,9 +78,10 @@ services:
       JWT_SECRET_FILE: /run/secrets/jwt_secret
     secrets:
       - jwt_secret
+      - internal_api_key
 
   db:
-    image: connectglobal/db:{{ studio_version }}
+    image: connectglobal/studio_db:{{ studio_version }}
     ports:
       - "3306:3306"
     environment:
@@ -96,6 +97,7 @@ services:
     secrets:
       - db_password
       - db_root_password
+      - internal_api_key
 
   adminer:
     image: adminer
@@ -140,6 +142,8 @@ secrets:
   jwt_secret:
     external: true
   db_root_password:
+    external: true
+  internal_api_key:
     external: true
 
 networks:

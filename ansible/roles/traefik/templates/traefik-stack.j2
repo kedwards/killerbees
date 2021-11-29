@@ -1,7 +1,7 @@
 version: '3.5'
 
 services:
-  reverse-proxy:
+  traefik:
     image: traefik:{{ traefik_version }}
     command:
       - "--api.dashboard=true"
