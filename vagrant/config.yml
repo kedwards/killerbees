@@ -1,86 +1,55 @@
 ---
 use: swarm
+
 plugins:
   - vai
 
-vb: &vb
-  type: vb
-  name_prefix: vb
+vm: &vm-defaults
+  name_prefix: box
   nodes: 1
-  box: bento/ubuntu-21.04
-  memory: 1024
+  box: 'ubuntu/bionic64'
+  memory: 512
   cpus: 1
-  os_disk: 10 GB
+  os_disk_size: '20GB'
   disks: 1
-  disk_size: 50 GB
-  disk_type: SATA Controller
+  disk_size: 10
+  disk_type: SCSI # IDE | SCSI | SATA
   gui: false
+  ansible_use: dns # dns | ip
   check_guest_additions: false
   box_check_update: false
   synced_folder_disabled: true
-  ip_addr: 192.168.2.
-  netmask: 255.255.255.0
+  ip_addr_prefix: 10.10.56.
+  ansible_group:
   customize:
     - description: DNS proxy in NAT mode
       command: --natdnshostresolver1
       value: 'on'
-
+ 
 swarm:
-  - description: HA Proxy
+  - <<: *vm-defaults
+    description: HA Proxy
     name: proxy
-    <<: *vb
+    ansible_use: dns
     name_prefix: proxy
-    ip_addr: 192.168.5.
-  - description: Swarm Managers
-    name: managers
-    <<: *vb
+    ip_addr_prefix: 10.10.10.
+    disk_type: SCSI
+    ansible_group: proxy_nodes
+  - <<: *vm-defaults
+    description: Swarm Managers
+    name: manager
     nodes: 3
     name_prefix: manager
-    ip_addr: 192.168.5.1
-  - description: Swarm Workers
-    name: workers
-    <<: *vb
-    nodes: 3
-    name_prefix: worker
-    ip_addr: 192.168.5.2
+    ip_addr_prefix: 10.10.10.1
+    disk_type: SCSI
+    ansible_group: manager_nodes
   - description: Provisioner
     name: provisioner
     type: provisioner
-    provision:
+    provisioners:
+      - description: Hosts Manager
+        type: hostsmanager
       - description: Vai provisioner
         type: vai
-        hosts: all
         path: ../ansible/inventory
         filename: vagrant_ansible_inventory
-        ansible_groups:
-          - name: proxy_nodes
-            nodes:
-              - proxy01
-          - name: swarm_managers
-            nodes:
-              - manager01
-              - manager02
-              - manager03
-          - name: swarm_workers
-            nodes:
-              - manager01
-              - manager02
-              - manager03
-          - name: gluster_nodes
-            nodes:
-              - manager01
-              - manager02
-              - manager03
-          - name: docker:children
-            nodes:
-              - proxy_nodes
-              - swarm_managers
-              - swarm_workers
-      - description: Ansible provisioner
-        type: ansible
-        hosts: all
-        ask_become_pass: true
-        playbook: ../ansible/playbooks/deploy-swarm.yml
-        config_file: ../ansible/ansible.cfg
-        inventory_path: ../ansible/inventory
-

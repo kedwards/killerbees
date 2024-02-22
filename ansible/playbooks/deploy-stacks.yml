@@ -1,0 +1,8 @@
+- name: Configure stacks
+  hosts: swarm_managers[0]
+  become: yes
+  roles:
+    - traefik
+    - portainer
+    # - studio
+    # - rtls

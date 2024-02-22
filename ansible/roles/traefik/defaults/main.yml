@@ -1,0 +1,18 @@
+stack_name: traefik
+admin_user: admin
+admin_password: password1234
+pip_packages:
+  - pyyaml
+  - jsondiff
+apt_packages:
+  - python3-jsondiff
+  - python3-yaml
+
+# docker-compose variables
+app_domain_name: docker.local
+traefik_network_name: web
+
+traefik_app_name: traefik
+traefik_version: 2.10
+traefik_listen_port: 80
+traefik_admin_port: 8080

@@ -1,0 +1,16 @@
+---
+- name: Create user for sudo access
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: sudo
+    shell: /bin/bash
+    generate_ssh_key: no
+    state: present
+  with_items: "{{ sudo_users }}"
+
+- name: Set passwordless sudo access for sudo users
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: /etc/sudoers.d/vagrant
+    mode: 0440
+  when: sudo_users is defined

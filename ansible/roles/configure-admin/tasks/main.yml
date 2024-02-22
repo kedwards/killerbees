@@ -1,6 +1,6 @@
 ---
 - name: Generate SSH keys
-  shell: ssh-keygen -b 2048 -f /home/docker/.ssh/id_rsa -t rsa -q -N ""
+  ansible.builtin.shell: ssh-keygen -b 2048 -f /home/docker/.ssh/id_rsa -t rsa -q -N ""
   args:
     creates: /home/docker/.ssh/id_rsa
 
@@ -22,8 +22,8 @@
     path: ~/.ssh/known_hosts
 
 - name: run ssh-keyscan to add keys to known_hosts
-  shell: "ssh-keyscan {{ item }} >> ~/.ssh/known_hosts"
+  ansible.builtin.shell: "ssh-keyscan {{ item }} >> ~/.ssh/known_hosts"
   with_items:
     - "{{ groups['swarm_managers'] }}"
-    - "{{ groups['swarm_workers'] }}"
+    - "{{ groups['swarm_workers'] | default([]) }}"
     - "{{ groups['proxy_nodes'] }}"

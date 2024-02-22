@@ -1,10 +1,11 @@
 ---
-- name: Check if Swarm has already been initialized
+- name: Check if swarm has already been initialized
   shell: docker node ls
   register: swarm_status
   ignore_errors: true
+  changed_when: false
 
-- name: Add Docker node to existing Swarm as worker
+- name: Add Docker node to existing swarm as worker
   shell: >
     docker swarm join
     --token {{ join_token }} {{ join_address }}

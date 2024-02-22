@@ -1,0 +1,17 @@
+---
+- name: Install Gluster and dependencies
+  ansible.builtin.apt:
+    name:
+      - attr
+      - glusterfs-server
+      - glusterfs-common
+      - glusterfs-client
+      - xfsprogs
+    state: present
+    update_cache: yes
+
+- name: Enable Gluster service
+  ansible.builtin.systemd:
+    name: glusterd
+    enabled: yes
+    state: started

@@ -1,0 +1,24 @@
+---
+- name: Check if gluster plugin has already been initialized
+  shell: docker plugin inspect glusterfs
+  register: gluster_plugin_status
+  ignore_errors: true
+  changed_when: false
+
+- name: GlusterFS configuration
+  block:
+    - name: Install gluster plugin
+      shell: "docker plugin install --alias glusterfs {{ docker_volume_plugin }} --grant-all-permissions --disable"
+
+    - name: Build a list of gluster servers
+      set_fact:
+        gluster_server_names: "{{ ','.join(groups['swarm_managers'] + groups['swarm_workers'] | default([])) }}"
+      with_items: "{{ groups['swarm_managers'] + groups['swarm_workers'] | default([]) }}"
+
+    - name: Set gluster plugin to use gluster nodes
+      shell: docker plugin set glusterfs SERVERS={{ gluster_server_names }}
+
+    - name: Enable gluster plugin
+      shell: docker plugin enable glusterfs
+  when: gluster_plugin_status.rc != 0
+

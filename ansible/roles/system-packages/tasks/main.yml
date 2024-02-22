@@ -1,0 +1,13 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - apache2-utils
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg-agent
+      - software-properties-common
+      - python3-pip
+    state: latest
+    update_cache: yes

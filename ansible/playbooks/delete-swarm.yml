@@ -1,12 +1,14 @@
 ---
-- name: workers leave the swarm
+- name: Nodes leaving the swarm
   hosts: swarm_workers
+  order: reverse_inventory
   become: yes
   roles:
     - docker-swarm-leave
 
-- name: managers leave the swarm
+- name: Nodes leaving the swarm
   hosts: swarm_managers
+  hosts: swarm_workers
   become: yes
   roles:
     - docker-swarm-leave

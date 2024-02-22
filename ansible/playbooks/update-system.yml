@@ -1,0 +1,7 @@
+---
+- name: Update system
+  hosts: swarm_*
+  become: yes
+  roles:
+    - update-system
+    - upgrade-packages

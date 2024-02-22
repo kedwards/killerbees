@@ -1,4 +1,0 @@
-gluster_volume_path: /glusterfs/bricks
-gluster_volume_name: gfs
-gluster_mount_path: /mnt/gfs
-gluster_hdd_device: /dev/sdb

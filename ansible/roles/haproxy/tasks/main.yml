@@ -13,7 +13,7 @@
     mode: 0755
 
 - name: Run cert generation script
-  shell: /tmp/generate_certs.sh
+  ansible.builtin.shell: /tmp/generate_certs.sh
 
 - name: Create HAProxy config file
   ansible.builtin.template:

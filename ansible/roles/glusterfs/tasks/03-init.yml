@@ -1,0 +1,46 @@
+---
+- name: Check if gluster volume is initialized
+  ansible.builtin.shell: >
+    gluster volume list
+  register: glustervolumes
+  when: inventory_hostname == groups['gluster_nodes'][0]
+
+- name: Create gluster volume path
+  ansible.builtin.file:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}/brick"
+    state: directory
+
+- name: Initialize cluster on first node
+  block: 
+    - name: Initialize gluster cluster
+      ansible.builtin.shell: gluster peer probe {{ item }}
+      loop: "{{ groups['gluster_nodes'] }}"
+
+    - name: Build a list of gluster servers
+      ansible.builtin.set_fact:
+        gluster_server_list: "{{ gluster_server_list | default([]) + [\"{}:{}/{}/brick\".format(item, gluster_volume_path, item)] }}"
+        gluster_name_list: "{{ gluster_name_list | default([]) + [item] }}"
+      loop: "{{ groups['gluster_nodes'] }}"
+
+    - name: Set gluster servers
+      ansible.builtin.set_fact:
+        gluster_servers: "{{ ' '.join(gluster_server_list) }}"
+        gluster_names: "{{ ','.join(gluster_name_list) }}"
+
+    - name: Create Gluster Volume
+      ansible.builtin.shell: >
+        gluster volume create {{ gluster_volume_name }} \
+        replica {{ groups['gluster_nodes'] | length }} \
+        {{ gluster_servers }} force
+
+    - name: Secure gluster volume
+      ansible.builtin.shell: >
+        gluster volume set {{ gluster_volume_name }} auth.allow  \
+        {{ gluster_names }}
+
+    - name: Start gluster volume
+      ansible.builtin.shell: gluster volume start {{ gluster_volume_name }}
+
+    - name: Wait 60s for gluster volume to be replicated
+      ansible.builtin.shell: sleep 60
+  when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_name not in glustervolumes.stdout

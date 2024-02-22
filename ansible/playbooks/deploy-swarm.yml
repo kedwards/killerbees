@@ -1,31 +1,39 @@
 ---
-- name: setup pre-requisites on non-admin nodes
-  hosts: all !admins
+- name: System pre-requisites
+  hosts: all
   become: yes
   roles:
-    - create-sudo-user
-    - install-modules
-    - configure-hostsname
+    # - create-user
+    - system-packages
+    # - hosts-name
 
-- name: setup docker user on admin nodes
-  hosts: admins
-  become: yes
-  become_user: docker
-  roles:
-    - configure-admin
+# - name: setup docker user on admin nodes
+#   hosts: admins
+#   become: yes
+#   become_user: docker
+#   roles:
+#    - create-user
+#    - configure-admin
 
 - name: configure swarm nodes
   hosts: swarm_*
   become: yes
   roles:
-    - copy-keys
-    - docker-installation
+    # - copy-keys
+    - docker
+    - create-user
     - docker-swarm-init
-    - gluster
+    - glusterfs
 
-- name: install & configure HA Proxy
-  hosts: proxy_nodes[0]
+- name: configure global services
+  hosts: swarm_managers
+  become: yes
+  roles:
+    - traefik
+    - portainer
+
+- name: configure HA Proxy
+  hosts: proxy_nodes
   become: yes
   roles:
     - haproxy
-
