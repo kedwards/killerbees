@@ -92,7 +92,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       os_disk_size = grp['os_disk_size'] || '20GB'
       netmask = grp['netmask'] || "255.255.255.0"
       check_guest_additions = grp['check_guest_additions'] || false
-      memory = grp['memory'] || 512
+      memory = grp['memory'] || 1024
       cpus = grp['cpus'] || 1
 
       disks = grp['disks'].to_i

@@ -1,0 +1,14 @@
+caddy_stack_name: caddy
+
+caddy_pip_packages:
+  - pyyaml
+  - jsondiff
+caddy_apt_packages:
+  - python3-jsondiff
+  - python3-yaml
+
+caddy_network_name: caddy
+caddy_gluster_mount_path: /mnt/gfs
+caddy_gfs_subdir: caddy
+caddy_app_name: caddy
+caddy_image: "lucaslorentz/caddy-docker-proxy:ci-alpine"

@@ -1,8 +1,0 @@
-{% for host in groups['swarm_managers'] + groups['swarm_workers'] | default([]) + groups['proxy_nodes'] %}
-Host {{ host }}
-  Hostname {{ host }}
-  User docker
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-
-{% endfor %}

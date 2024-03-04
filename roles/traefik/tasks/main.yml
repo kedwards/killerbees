@@ -1,39 +1,39 @@
 ---
-- name: "Create {{ stack_name }} stack"
-  block:
-    - name: Verify stacks directory exists
-      ansible.builtin.file:
-        path: "/home/{{ ansible_user }}/stacks"
-        state: directory
+- name: Verify stacks directory exists
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/stacks"
+    state: directory
+    mode: 0755
 
-    - name: Generate admin password hash
-      ansible.builtin.shell: echo $(htpasswd -nb {{ admin_user }} {{ admin_password }}) | sed -e s/\\$/\\$\\$/g
-      # ansible.builtin.shell: echo {{ admin_user }}:$(openssl passwd -crypt {{ admin_password }}) | sed -e s/\\$/\\$\\$/g
-      # ansible.builtin.shell: echo $(htpasswd -nBb {{ admin_user }} {{ portainer_admin_password }}) | cut -d ":" -f 2 | sed -e s/\\$/\\$\\$/g
-      register: generated_password
+- name: Generate admin password hash
+  ansible.builtin.shell: |
+    set -o pipefail
+    echo $(htpasswd -nb {{ traefik_admin_user }} {{ traefik_admin_password }}) | sed -e s/\\$/\\$\\$/g
+  # ansible.builtin.shell: echo {{ admin_user }}:$(openssl passwd -crypt {{ admin_password }}) | sed -e s/\\$/\\$\\$/g
+  # ansible.builtin.shell: echo $(htpasswd -nBb {{ admin_user }} {{ portainer_admin_password }}) | cut -d ":" -f 2 | sed -e s/\\$/\\$\\$/g
+  args:
+    executable: /bin/bash
+  register: generated_password
+  changed_when: false
 
-    - name: Create docker-compose stack file
-      ansible.builtin.template:
-        src: "{{ stack_name }}-stack.j2"
-        dest: "/home/{{ ansible_user }}/stacks/{{ stack_name }}-stack.yml"
-        mode: 0775
+- name: Create docker-compose stack file
+  ansible.builtin.template:
+    src: "{{ traefik_stack_name }}-stack.j2"
+    dest: "/home/{{ ansible_user }}/stacks/{{ traefik_stack_name }}-stack.yml"
+    mode: 0664
 
-    - name: Install required packages
-      ansible.builtin.apt:
-        name: "{{ apt_packages }}"
-        state: latest
-        update_cache: yes
-      when: ansible_os_family == 'Debian'
+- name: Install required packages
+  ansible.builtin.apt:
+    name: "{{ traefik_apt_packages }}"
+  when: ansible_os_family == 'Debian'
 
-    - name: Install required packages
-      ansible.builtin.pip:
-        name: "{{ pip_packages }}"
-      when: ansible_os_family == 'Ubunbtu'
+- name: Install required packages
+  ansible.builtin.pip:
+    name: "{{ traefik_pip_packages }}"
+  when: ansible_os_family == 'Ubunbtu'
 
-    - name: Deploy stack from a compose file
-      community.docker.docker_stack:
-        state: present
-        name: "{{ stack_name }}"
-        compose:
-          - "/home/{{ ansible_user }}/stacks/{{ stack_name }}-stack.yml"
-  when: inventory_hostname == groups['swarm_managers'][0]
+- name: Deploy stack from compose file
+  community.docker.docker_stack:
+    name: "{{ traefik_stack_name }}"
+    compose:
+      - "/home/{{ ansible_user }}/stacks/{{ traefik_stack_name }}-stack.yml"

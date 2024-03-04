@@ -6,14 +6,14 @@ WORKING_DIR=/home/{{ ansible_user }}/ssl
 mkdir -p ${WORKING_DIR}
 
 PASSWORD=$(openssl rand -base64 32)
-SUBJ="/C=CA/ST=Alerta/L=Calgary/O=haproxy/OU=haproxy/CN=*.{{ app_domain_name }}"
+SUBJ="/C=CA/ST=Alerta/L=Calgary/O=haproxy/OU=haproxy/CN=*.{{ haproxy_app_domain_name }}"
 
-KEY=${WORKING_DIR}/{{ app_domain_name }}.key.pem
-CERT=${WORKING_DIR}/{{ app_domain_name }}.cert.pem
-CSR=${WORKING_DIR}/{{ app_domain_name }}.csr
+KEY=${WORKING_DIR}/{{ haproxy_app_domain_name }}.key.pem
+CERT=${WORKING_DIR}/{{ haproxy_app_domain_name }}.cert.pem
+CSR=${WORKING_DIR}/{{ haproxy_app_domain_name }}.csr
 
-DEFAULT_PEM_DIR=/etc/ssl/{{ app_domain_name }}
-DEFAULT_PEM_FILE=${DEFAULT_PEM_DIR}/{{ app_domain_name }}.pem
+DEFAULT_PEM_DIR=/etc/ssl/{{ haproxy_app_domain_name }}
+DEFAULT_PEM_FILE=${DEFAULT_PEM_DIR}/{{ haproxy_app_domain_name }}.pem
 
 # Check if cert has been created
 if [ ! -e ${DEFAULT_PEM_FILE} ]; then
@@ -24,5 +24,5 @@ if [ ! -e ${DEFAULT_PEM_FILE} ]; then
   openssl rsa -in ${KEY}.org -passin pass:${PASSWORD} -out ${KEY} &> /dev/null
   openssl x509 -req -days 3650 -in ${CSR} -signkey ${KEY} -out ${CERT} &> /dev/null
   cat ${CERT} ${KEY} > ${DEFAULT_PEM_FILE}
-  echo ${PASSWORD} > ${WORKING_DIR}/{{ app_domain_name }}.password.txt
+  echo ${PASSWORD} > ${WORKING_DIR}/{{ haproxy_app_domain_name }}.password.txt
 fi

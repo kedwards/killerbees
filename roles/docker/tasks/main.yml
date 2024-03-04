@@ -1,3 +1,6 @@
 ---
-- import_tasks: docker.yml
-- import_tasks: docker-gluster-plugin.yml
+- name: Import docker tasks
+  ansible.builtin.import_tasks: docker.yml
+
+- name: Import gluster-plugin tasks
+  ansible.builtin.import_tasks: docker-gluster-plugin.yml

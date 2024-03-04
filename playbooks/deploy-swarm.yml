@@ -1,39 +1,33 @@
 ---
 - name: System pre-requisites
   hosts: all
-  become: yes
+  become: true
   roles:
-    # - create-user
     - system-packages
-    # - hosts-name
 
-# - name: setup docker user on admin nodes
-#   hosts: admins
-#   become: yes
-#   become_user: docker
-#   roles:
-#    - create-user
-#    - configure-admin
-
-- name: configure swarm nodes
+- name: Configure all swarm nodes
   hosts: swarm_*
-  become: yes
+  become: true
   roles:
-    # - copy-keys
     - docker
-    - create-user
     - docker-swarm-init
-    - glusterfs
 
-- name: configure global services
-  hosts: swarm_managers
-  become: yes
+- name: Configure gluster nodes
+  hosts: gluster_nodes
+  become: true
   roles:
-    - traefik
-    - portainer
+    - gluster
 
-- name: configure HA Proxy
+- name: Configure HA Proxy
   hosts: proxy_nodes
-  become: yes
+  become: true
   roles:
     - haproxy
+
+- name: Configure global services
+  hosts: swarm_managers[0]
+  become: true
+  roles:
+    - caddy
+    - traefik
+    - portainer

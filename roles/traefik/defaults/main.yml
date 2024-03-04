@@ -1,15 +1,15 @@
-stack_name: traefik
-admin_user: admin
-admin_password: password1234
-pip_packages:
+traefik_stack_name: traefik
+traefik_admin_user: admin
+traefik_admin_password: password1234
+
+traefik_pip_packages:
   - pyyaml
   - jsondiff
-apt_packages:
+traefik_apt_packages:
   - python3-jsondiff
   - python3-yaml
 
-# docker-compose variables
-app_domain_name: docker.local
+traefik_app_domain_name: docker.local
 traefik_network_name: web
 
 traefik_app_name: traefik

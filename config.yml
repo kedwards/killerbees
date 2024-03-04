@@ -8,7 +8,7 @@ vm: &vm-defaults
   name_prefix: box
   nodes: 1
   box: 'ubuntu/bionic64'
-  memory: 512
+  memory: 1024
   cpus: 1
   os_disk_size: '20GB'
   disks: 1
@@ -53,3 +53,8 @@ swarm:
         type: vai
         path: inventory
         filename: vagrant_ansible_inventory
+      #- description: Ansible provisioner
+      #  type: ansible
+      #  playbook: playbooks/deploy-swarm.yml
+      #  config_file: ansible.cfg
+      #  inventory_path: inventory

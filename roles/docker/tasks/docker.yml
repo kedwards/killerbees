@@ -1,13 +1,13 @@
 ---
 - name: Create a temporary directory
-  tempfile:
+  ansible.builtin.tempfile:
     state: directory
     suffix: tmp
   register: tmpdir
   changed_when: false
 
 - name: Install python packages
-  pip:
+  ansible.builtin.pip:
     name: docker
   when: ansible_distribution == 'Ubuntu'
 
@@ -15,62 +15,42 @@
   ansible.builtin.apt:
     name:
       - python3-docker
-    state: latest
-    update_cache: yes
+    state: present
   when: ansible_distribution == 'Debian'
 
-- name: Remove old versions of Docker
-  apt:
-    state: absent
-    pkg:
-      - docker
-      - docker-engine
-      - docker.io
-      - containerd
-      - runc
-    force_apt_get: true
-
 - name: Install docker
+  when: ansible_distribution == 'Ubuntu'
   block:
-    - name: Get docker key
-      shell: "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
-
-    # - name: Add Docker repository
-    #   shell: add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+    - name: Add Docker GPG apt Key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
     - name: Add Docker repository
       ansible.builtin.apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename | lower }} stable
       tags: docker
-  when: ansible_distribution == 'Ubuntu'
-  
-- name: Install Docker
-  apt:
-    pkg:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
-    state: present
-    force_apt_get: true
-    update_cache: yes
 
-# - name: Add ansible_user user to docker group
-#   shell: "adduser {{ ansible_user }} docker"
+    - name: Install Docker
+      ansible.builtin.apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
 
 - name: Add user to docker group
-  user:
+  ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups:
       - docker
-    append: yes
+    append: true
 
-- name: Start docker service, if not started
+- name: Start docker service
   ansible.builtin.service:
     name: docker
     state: started
     enabled: true
-  ignore_errors: true
 
-- name: Waiting for Docker service to become available
+- name: Wait for docker service
   ansible.builtin.wait_for:
     path: /var/run/docker.sock

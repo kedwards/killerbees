@@ -1,9 +1,12 @@
 ---
-- name: Check if Swarm is Already Initialized
-  shell: docker node ls
+- name: Check if swarm has already been initialized
+  ansible.builtin.command: docker node ls
   register: swarm_status
-  ignore_errors: true
+  # failed_when: "'This node is not a swarm manager' not in swarm_status.stderr"
+  changed_when: false
 
 - name: Add Managers to the Swarm
-  shell: "docker swarm join --token {{ join_token }} {{ join_address }}"
-  when: swarm_status.rc != 0
+  ansible.builtin.command: "docker swarm join --token {{ join_token }} {{ join_address }}"
+  register: add_manager
+  changed_when: "'This node joined a swarm as a manager' in add_manager.stdout"
+  failed_when: "'This node joined a swarm as a manager' not in add_manager.stdout and 'This node is already part of a swarm' not in add_manager.stderr" 

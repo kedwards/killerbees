@@ -1,0 +1,29 @@
+---
+- name: Read device information
+  community.general.parted:
+    device: "{{ gluster_hdd_device }}"
+  register: hdd_info
+
+- name: Verify if path exists
+  ansible.builtin.stat:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}"
+  register: volume_path
+
+- name: "Create XFS path {{ gluster_volume_path }}"
+  ansible.builtin.file:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}"
+    state: directory
+    mode: 0755
+  when: not volume_path.stat.exists
+
+- name: "Create a XFS filesystem on {{ gluster_hdd_device }}"
+  community.general.filesystem:
+    fstype: xfs
+    dev: "{{ gluster_hdd_device }}"
+
+- name: "Mount XFS volume {{ gluster_hdd_device }}"
+  ansible.posix.mount:
+    path: "{{ gluster_volume_path }}"
+    src: "{{ gluster_hdd_device }}"
+    fstype: xfs
+    state: mounted

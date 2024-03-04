@@ -50,6 +50,20 @@ docker_nodes
 swarm_managers
 swarm_workers
 ```
+```
+File.open('ansible/hosts/vagrant' ,'w') do |f|
+  f.write "[default]\n"
+  f.write "#{VAGRANT_NETWORK_IP} ansible_ssh_user=vagrant ansible_ssh_private_key_file=~/.vagrant.d/insecure_private_key\n"
+end
+require "fileutils"
+f = File.open("hosts","w")
+servers.each do |servers|
+  f.puts servers["ip_addr"]
+end # servers.each
+f.close
+
+
+```
 
 ## Setup Docker Swarm with Ansible.
 

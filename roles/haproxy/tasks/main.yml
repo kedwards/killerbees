@@ -3,26 +3,25 @@
   ansible.builtin.apt:
     name:
       - haproxy
-    state: latest
-    update_cache: yes
 
 - name: Copy cert generation script to host
   ansible.builtin.template:
     src: generate_certs.j2
     dest: /tmp/generate_certs.sh
-    mode: 0755
+    mode: 0744
 
 - name: Run cert generation script
-  ansible.builtin.shell: /tmp/generate_certs.sh
+  ansible.builtin.command: /tmp/generate_certs.sh
+  changed_when: false
 
 - name: Create HAProxy config file
   ansible.builtin.template:
     src: haproxy.j2
     dest: /etc/haproxy/haproxy.cfg
-    mode: 0775
+    mode: 0644
 
 - name: Restart HAProxy service
   ansible.builtin.systemd:
     name: haproxy
-    enabled: yes
+    enabled: true
     state: restarted

@@ -1,5 +1,5 @@
- # https://github.com/trajano/docker-volume-plugins
- # This project is forked at https://github.com/marcelo-ochoa/docker-volume-plugins
- # please submit PR or bugs there.
- #docker_volume_plugin: trajano/glusterfs-volume-plugin
- docker_volume_plugin: mochoa/glusterfs-volume-plugin
+# https://github.com/trajano/docker-volume-plugins
+# This project is forked at https://github.com/marcelo-ochoa/docker-volume-plugins
+# please submit PR or bugs there.
+# docker_volume_plugin: trajano/glusterfs-volume-plugin
+docker_volume_plugin: mochoa/glusterfs-volume-plugin

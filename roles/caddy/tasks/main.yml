@@ -1,0 +1,34 @@
+---
+- name: Verify stacks directory exists
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/stacks"
+    state: directory
+    mode: 0755
+
+- name: Verify volume path
+  ansible.builtin.file:
+    path: "{{ caddy_gluster_mount_path }}/caddy"
+    state: directory
+    mode: 0755
+
+- name: Create docker-compose stack file
+  ansible.builtin.template:
+    src: "{{ caddy_stack_name }}-stack.j2"
+    dest: "/home/{{ ansible_user }}/stacks/{{ caddy_stack_name }}-stack.yml"
+    mode: 0664
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name: "{{ caddy_apt_packages }}"
+  when: ansible_os_family == 'Debian'
+
+- name: Install required packages
+  ansible.builtin.pip:
+    name: "{{ caddy_pip_packages }}"
+  when: ansible_os_family == 'Ubunbtu'
+
+- name: Deploy stack from compose file
+  community.docker.docker_stack:
+    name: "{{ caddy_stack_name }}"
+    compose:
+      - "/home/{{ ansible_user }}/stacks/{{ caddy_stack_name }}-stack.yml"

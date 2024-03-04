@@ -1,0 +1,109 @@
+---
+- name: Check if Gluster path is initialized
+  ansible.builtin.stat:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}/brick"
+  register: glusterpath
+
+- name: Create gluster volume path
+  ansible.builtin.file:
+    path: "{{ gluster_volume_path }}/{{ inventory_hostname }}/brick"
+    state: directory
+    mode: 0644
+
+- name: Check if gluster volume exists
+  when: inventory_hostname == groups['gluster_nodes'][0]
+  ansible.builtin.command: gluster volume list
+  register: glustervolume
+  changed_when: false
+
+- name: Initialize cluster
+  when: inventory_hostname == groups['gluster_nodes'][0]
+  block:
+    - name: Initialize gluster cluster
+      ansible.builtin.command: gluster peer probe {{ item }}
+      loop: "{{ groups['gluster_nodes'] }}"
+      changed_when: false
+
+    - name: Build a list of gluster servers
+      ansible.builtin.set_fact:
+        gluster_server_list: "{{ gluster_server_list | default([]) + [\"{}:{}/{}/brick\".format(item, gluster_volume_path, item)] }}"
+        gluster_name_list: "{{ gluster_name_list | default([]) + [item] }}"
+      loop: "{{ groups['gluster_nodes'] }}"
+
+    - name: Set gluster servers
+      ansible.builtin.set_fact:
+        gluster_servers: "{{ ' '.join(gluster_server_list) }}"
+        gluster_names: "{{ ','.join(gluster_name_list) }}"
+
+    - name: Create Gluster Volume
+      ansible.builtin.command: >
+        gluster volume create {{ gluster_volume_name }} \
+        replica {{ groups['gluster_nodes'] | length }} \
+        {{ gluster_servers }} force
+      register: create_volume
+      when: glustervolume.stdout.find(gluster_volume_name) == -1
+
+    - name: Secure gluster volume
+      ansible.builtin.command: >
+        gluster volume set {{ gluster_volume_name }} auth.allow  \
+        {{ gluster_names }}
+      when: glustervolume.stdout.find(gluster_volume_name) == -1
+
+    - name: Verify if volume is started
+      ansible.builtin.command: gluster volume info
+      register: gluster_info
+      changed_when: false
+
+    - name: Start gluster volume
+      ansible.builtin.command: gluster volume start {{ gluster_volume_name }}
+      when: "gluster_info.stdout.find('Status: Started') == -1"
+
+    - name: Wait 60s for gluster volume to be replicated
+      ansible.builtin.command: sleep 60
+      when: "gluster_info.stdout.find('Status: Started') == -1"
+# ---
+# - name: Check if gluster volume is initialized
+#   when: inventory_hostname == groups['gluster_nodes'][0]
+#   ansible.builtin.command: gluster volume list
+#   register: glustervolumes
+#   changed_when: false
+
+# - name: Create gluster volume path
+#   ansible.builtin.file:
+#     path: "{{ gluster_volume_path }}/{{ inventory_hostname }}/brick"
+#     state: directory
+
+# - name: Initialize cluster on first node
+#   block: 
+#     - name: Initialize gluster cluster
+#       ansible.builtin.command: gluster peer probe {{ item }}
+#       loop: "{{ groups['gluster_nodes'] }}"
+
+#     - name: Build a list of gluster servers
+#       ansible.builtin.set_fact:
+#         gluster_server_list: "{{ gluster_server_list | default([]) + [\"{}:{}/{}/brick\".format(item, gluster_volume_path, item)] }}"
+#         gluster_name_list: "{{ gluster_name_list | default([]) + [item] }}"
+#       loop: "{{ groups['gluster_nodes'] }}"
+
+#     - name: Set gluster servers
+#       ansible.builtin.set_fact:
+#         gluster_servers: "{{ ' '.join(gluster_server_list) }}"
+#         gluster_names: "{{ ','.join(gluster_name_list) }}"
+
+#     - name: Create Gluster Volume
+#       ansible.builtin.shell: >
+#         gluster volume create {{ gluster_volume_name }} \
+#         replica {{ groups['gluster_nodes'] | length }} \
+#         {{ gluster_servers }} force
+
+#     - name: Secure gluster volume
+#       ansible.builtin.shell: >
+#         gluster volume set {{ gluster_volume_name }} auth.allow  \
+#         {{ gluster_names }}
+
+#     - name: Start gluster volume
+#       ansible.builtin.shell: gluster volume start {{ gluster_volume_name }}
+
+#     - name: Wait 60s for gluster volume to be replicated
+#       ansible.builtin.shell: sleep 60
+#   when: inventory_hostname == groups['gluster_nodes'][0] and gluster_volume_name not in glustervolumes.stdout

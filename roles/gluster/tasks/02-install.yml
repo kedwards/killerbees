@@ -8,10 +8,9 @@
       - glusterfs-client
       - xfsprogs
     state: present
-    update_cache: yes
 
 - name: Enable Gluster service
   ansible.builtin.systemd:
     name: glusterd
-    enabled: yes
+    enabled: true
     state: started

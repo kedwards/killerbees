@@ -1,0 +1,30 @@
+version: '3.5'
+
+services:
+  caddy:
+    image: {{ caddy_image }}
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_INGRESS_NETWORKS={{ caddy_network_name }}
+		volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - caddy_data:/data
+    networks:
+      - {{ caddy_network_name }}
+    deploy:
+      mode: global
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  {{ caddy_network_name }}:
+    driver: overlay
+    attachable: true
+    name: {{ caddy_network_name }}
+
+volumes:
+  caddy_data:
+    driver: glusterfs
+    name: "gfs/caddy/data"

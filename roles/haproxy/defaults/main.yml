@@ -1,4 +1,4 @@
-app_domain_name: docker.local
+haproxy_app_domain_name: docker.local
 
 haproxy_stats_user: admin
 haproxy_stats_password: password1234

@@ -1,0 +1,12 @@
+---
+- name: Import xfs
+  ansible.builtin.import_tasks: 01-xfs.yml
+
+- name: Import gluster install
+  ansible.builtin.import_tasks: 02-install.yml
+
+- name: Import initialize
+  ansible.builtin.import_tasks: 03-init.yml
+
+- name: Import mount
+  ansible.builtin.import_tasks: 04-mount.yml

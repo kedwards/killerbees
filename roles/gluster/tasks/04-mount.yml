@@ -3,9 +3,10 @@
   ansible.builtin.file:
     path: "{{ gluster_mount_path }}"
     state: directory
+    mode: 0755
 
-- name: "Mount Gluster volume {{ gluster_volume_name }} to {{ gluster_mount_path }}"
-  ansible.builtin.mount:
+- name: "Mount Gluster volume {{ gluster_mount_path }}"
+  ansible.posix.mount:
     path: "{{ gluster_mount_path }}"
     src: "localhost:/{{ gluster_volume_name }}"
     fstype: glusterfs
