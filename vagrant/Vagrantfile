@@ -116,7 +116,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
           srv.ssh.forward_agent = true
           srv.vm.box = vm_box
           srv.vm.hostname = vm_name
-          srv.disksize.size = os_disk_size
           srv.vm.network "private_network", ip: guest_ipaddr, netmask: netmask
 
           srv.vm.provider :virtualbox do |vb, override|
@@ -127,6 +126,11 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
             # convienience shortcuts for memory and cpu
             vb.memory = memory
             vb.cpus = cpus
+
+            vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
+            vb.customize ["modifyvm", :id, "--uartmode1", "file", File::NULL]
+            vb.customize [ "modifyvm", :id, "--uartmode1", "disconnected" ]
+            vb.customize [ "modifyvm", :id, "--cableconnected1", "on" ]
 
             if not grp['customize'].nil?
               (grp['customize']).each_with_index do |customize, customize_index|
@@ -143,7 +147,24 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
               unless File.exist?(next_disk)
                 vb.customize ['createhd', '--filename', next_disk, '--size', disk_size * 1024]
               end
-              vb.customize ['storageattach', :id, '--storagectl', grp['disk_type'], '--port', k+1, '--device', 0, '--type', 'hdd', '--medium', next_disk]
+              
+              # Calculate port and device for different storage controller types
+              if grp['disk_type'] == 'IDE'
+                # IDE controllers have 2 ports (0,1) and 2 devices per port (0,1)
+                # Port 0 Device 0 is usually the primary disk, so start from Port 0 Device 1
+                port = (k - 1) / 2
+                device = (k - 1) % 2 + 1
+                if port > 1 || device > 1
+                  puts "Warning: IDE controller only supports 2 additional disks. Disk #{k} will be skipped."
+                  next
+                end
+              else
+                # For SATA/SCSI controllers, use the original logic
+                port = k + 1
+                device = 0
+              end
+              
+              vb.customize ['storageattach', :id, '--storagectl', grp['disk_type'], '--port', port, '--device', device, '--type', 'hdd', '--medium', next_disk]
             end
 
             if not grp['usb'].nil?

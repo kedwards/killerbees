@@ -5,10 +5,28 @@
   ignore_errors: true
   when: inventory_hostname == groups['swarm_managers'][0]
 
+# - name: Get ip address of machine
+#   ansible.builtin.set_fact:
+#     swarm_ip: "{{ ansible_default_ipv4.address }}"
+#   when: inventory_hostname
+
+- name: Get enp0s8 IP address
+  set_fact:
+    addvertise_ip_addr: "{{ ansible_enp0s8.ipv4.address }}"
+  when: ansible_enp0s8 is defined
+
+# - name: Debug
+#   debug:
+#     msg: "Swarm IP is {{ swarm_ip }}"
+
+# - name: Display enp0s8 IP
+#   debug:
+#     msg: "enp0s8 IP address: {{ enp0s8_ip }}"
+
 - name: Initialize swarm leader
   shell: >
     docker swarm init
-    --advertise-addr={{ inventory_hostname }}:2377
+    --advertise-addr={{ addvertise_ip_addr }}:2377
   when: swarm_status.rc != 0 and inventory_hostname == groups['swarm_managers'][0]
   run_once: true
 

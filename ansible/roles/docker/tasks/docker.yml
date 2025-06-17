@@ -47,9 +47,7 @@
 - name: Install Docker
   apt:
     pkg:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
+      - docker.io
     state: present
     force_apt_get: true
     update_cache: yes
