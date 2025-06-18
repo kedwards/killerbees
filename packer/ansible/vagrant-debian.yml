@@ -1,0 +1,116 @@
+---
+
+- hosts: all
+  become: yes
+  vars:
+    mountDir: /vbox
+
+  tasks:
+  - name: check for Debian 11 and later
+    fail:
+      msg: This playbook must be executed on Debian 11 or later
+    when: 
+    - ansible_distribution != 'Debian' 
+    - ansible_distribution_major_version is version('11', operator 'le')
+
+  - name: install additional useful packages
+    apt:
+      name: "{{ packages }}"
+      state: latest
+      update_cache: yes
+    vars:
+      packages:
+      - bzip2
+      - curl
+      - wget
+      - vim
+      - jq
+  
+  - name: upgrade all packages
+    apt:
+      name: '*'
+      state: latest
+
+  # ------------------------------------------------------------------------------------ VIRTUALBOX
+  - name: Virtualbox-specific tasks
+    block:
+    - name: create a temporary mount point for vbox guest additions  
+      file:
+        path: "{{ mountDir }}"
+        state: directory
+        
+    # as per `guest_additions_path` in Packer's configuration file
+    - name: mount guest additions ISO read-only
+      mount:
+        path: "{{ mountDir }}"
+        src: /home/vagrant/VBoxGuestAdditions.iso
+        fstype: iso9660
+        opts: ro
+        state: mounted
+
+    # in case running kernel modules are detected using `failed_when` can prevent an error
+    - name: execute guest additions script
+      command: "{{ mountDir }}/VBoxLinuxAdditions.run"
+      register: modules
+      failed_when: 
+      - modules.rc != 0
+      - modules.rc != 2
+
+    - name: unmount guest additions ISO
+      mount:
+        path: "{{ mountDir }}"
+        state: absent
+
+    - name: remove the temporary mount point  
+      file:
+        path: "{{ mountDir }}"
+        state: absent
+
+    when: ansible_virtualization_type == "virtualbox"
+
+# ------------------------------------------------------------------------------------ KVM
+  - name: kvm-qemu-libvirt-specific tasks
+    block:
+    - name: install qemu specifc software packages
+      apt:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+        - spice-vdagent
+        - qemu-guest-agent
+        - ifplugd
+
+    - name: remove network device names
+      lineinfile:
+        path: /etc/network/interfaces
+        regexp: "{{ item }}"
+        state: absent
+      loop:
+      - "^auto"
+      - "^iface"
+      - "^allow-hotplug"
+    
+    - name: add the correct device name
+      blockinfile:
+        path: /etc/network/interfaces
+        block: |
+          allow-hotplug eth0
+          auto lo
+          iface lo inet loopback
+          iface eth0 inet dhcp
+          pre-up sleep 2
+    
+    - name: configure ifplugd for eth0
+      lineinfile:
+        path: /etc/default/ifplugd
+        regexp: "^INTERFACES=.*"
+        line: 'INTERFACES="eth0"'
+    
+    - name: start the new services
+      systemd:
+        state: started
+        name: ifplugd
+        enabled: true
+
+    when: ansible_virtualization_type == "kvm"
