@@ -1,0 +1,85 @@
+packer {
+  required_plugins {
+    qemu = {
+      source  = "github.com/hashicorp/qemu"
+      version = "~> 1"
+    }
+    ansible = {
+      source  = "github.com/hashicorp/ansible"
+      version = "~> 1"
+    }
+    vagrant = {
+      source  = "github.com/hashicorp/vagrant"
+      version = "~> 1"
+    }
+    virtualbox = {
+      source  = "github.com/hashicorp/virtualbox"
+      version = ">= 1.0.0"
+    }
+  }
+}
+
+variable "vm_name" {
+  default = "arch-vagrant"
+}
+
+variable "iso_url" {
+  default = "https://mirror.rackspace.com/archlinux/iso/latest/archlinux-x86_64.iso"
+}
+
+source "virtualbox-iso" "archvbox" {
+  vm_name                  = "archvbox"
+  boot_command             = [
+    "<enter><wait10><wait10><wait10><wait10>",
+    "/usr/bin/curl -O http://{{ .HTTPIP }}:{{ .HTTPPort }}/enable-ssh.sh<enter><wait5>",
+    "/usr/bin/curl -O http://{{ .HTTPIP }}:{{ .HTTPPort }}/arch-autoinstall.sh<enter><wait5>",
+    # "/usr/bin/curl -O http://{{ .HTTPIP }}:{{ .HTTPPort }}/poweroff.timer<enter><wait5>",
+    "/usr/bin/bash enable-ssh.sh<enter><wait5>",
+    "/usr/bin/bash arch-autoinstall.sh<enter>"
+  ]
+  boot_wait                = "5s"
+  disk_size                = "20480"
+  guest_os_type            = "Linux_64"
+  http_directory           = "http"
+  # iso_url                  = "https://mirror.cpsc.ucalgary.ca/mirror/archlinux.org/iso/latest/archlinux-x86_64.iso"
+  iso_url                  = "file:///home/kedwards/Downloads/archlinux-2025.07.01-x86_64.iso"
+  iso_checksum             = "sha256:0dbac20eddeef67d3b3e9c109a51b77140cf4ee33cc0b408181454f6c41d0a91"
+  output_directory         = "output-virtualbox-iso-archvbox"
+  sata_port_count          = "10"
+  shutdown_command         = "echo 'packer' | sudo -S shutdown -P now"
+  ssh_agent_auth           = true
+  ssh_timeout              = "6000s"
+  ssh_username             = "vagrant"
+  ssh_password             = "vagrant"
+  vboxmanage               = [
+    ["modifyvm", "{{ .Name }}", "--memory", "4096"], 
+    ["modifyvm", "{{ .Name }}", "--cpus", "2"],
+    ["modifyvm", "{{ .Name }}", "--firmware", "efi"],
+    ["modifyvm", "{{ .Name }}", "--nat-localhostreachable1", "on" ]
+  ]
+}
+
+build {
+  sources = ["source.virtualbox-iso.archvbox"]
+
+  provisioner "shell" {
+    inline = [
+      "useradd -m -G wheel vagrant",
+      "echo 'vagrant:vagrant' | chpasswd",
+      "echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers",
+      "mkdir -p /home/vagrant/.ssh",
+      "curl -fsSL https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant.pub -o /home/vagrant/.ssh/authorized_keys",
+      "chown -R vagrant:vagrant /home/vagrant/.ssh",
+      "chmod 700 /home/vagrant/.ssh",
+      "chmod 600 /home/vagrant/.ssh/authorized_keys",
+
+      "pacman --noconfirm -S virtualbox-guest-utils",
+      "systemctl enable vboxservice"
+    ]
+  }
+
+  post-processor "vagrant" {
+    keep_input_artifact = false
+    output              = "arch-vagrant.box"
+  }
+}

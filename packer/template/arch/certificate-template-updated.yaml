@@ -1,0 +1,38 @@
+Description: >
+  Create a public certificate for the Reach domain in (us-east-1)
+  Primarily for the use with cloudfront via other regions
+
+Parameters:
+  PublicHostedName:
+    Type: String
+    Description: The name of the public hosted zone.
+
+  PublicHostedZoneId:
+    Type: String
+    Description: The ID of the public hosted zone.
+
+  CertificateVersion:
+    Type: String
+    Description: Version identifier to force certificate recreation
+    Default: "v2"
+
+Resources:
+  ReachPublicHostedCertificate:
+    Type: "AWS::CertificateManager::Certificate"
+    Properties:
+      DomainName: !Ref PublicHostedName
+      DomainValidationOptions:
+        - DomainName: !Ref PublicHostedName
+          HostedZoneId: !Ref PublicHostedZoneId
+      SubjectAlternativeNames:
+        - "Fn::Sub": "*.${PublicHostedName}"
+      ValidationMethod: DNS
+      Tags:
+        - Key: "Version"
+          Value: !Ref CertificateVersion
+
+Outputs:
+  ReachPublicHostedCertificateArn:
+    Value: !Ref ReachPublicHostedCertificate
+    Export:
+      Name: Reach-PublicHostedDefaultRegionCertificateArn

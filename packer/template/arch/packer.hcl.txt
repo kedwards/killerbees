@@ -1,0 +1,57 @@
+{
+  "builders": [
+    {
+      "type": "virtualbox-iso",
+      "vm_name": "arch-vagrant",
+      "iso_url": "https://mirror.cpsc.ucalgary.ca/mirror/archlinux.org/iso/latest/archlinux-x86_64.iso",
+      "iso_checksum": "auto",
+      "iso_checksum_type": "sha256",
+      "guest_os_type": "Linux_64",
+      "ssh_username": "vagrant",
+      "ssh_password": "vagrant",
+      "ssh_wait_timeout": "30m",
+      "http_directory": "http",
+      "boot_command": [
+        "<enter><wait>",
+        "curl http://{{ .HTTPIP }}:{{ .HTTPPort }}/arch-autoinstall.sh -o /arch-autoinstall.sh<enter><wait>",
+        "chmod +x /arch-autoinstall.sh<enter><wait>",
+        "bash /arch-autoinstall.sh<enter>"
+      ],
+      "boot_wait": "5s",
+      "shutdown_command": "shutdown -h now",
+      "headless": true,
+      "disk_size": 10240,
+      "vboxmanage": [
+        ["modifyvm", "arch-vagrant", "--memory", "2048"],
+        ["modifyvm", "arch-vagrant", "--cpus", "2"],
+        ["modifyvm", "arch-vagrant", "--firmware", "efi"]
+      ]
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "useradd -m -G wheel vagrant",
+        "echo 'vagrant:vagrant' | chpasswd",
+        "echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers",
+        "mkdir -p /home/vagrant/.ssh",
+        "curl -fsSL https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant.pub -o /home/vagrant/.ssh/authorized_keys",
+        "chown -R vagrant:vagrant /home/vagrant/.ssh",
+        "chmod 700 /home/vagrant/.ssh",
+        "chmod 600 /home/vagrant/.ssh/authorized_keys",
+
+        "pacman --noconfirm -S virtualbox-guest-utils",
+        "systemctl enable vboxservice"
+      ]
+    }
+  ],
+  "post-processors": [
+    {
+      "type": "vagrant",
+      "keep_input_artifact": false,
+      "output": "arch-vagrant.box"
+    }
+  ]
+}
+
